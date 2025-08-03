@@ -1,23 +1,26 @@
 // MindfulBite - Clean JavaScript for Food Search and Alternatives
 
-// Global state
+// Global variables
 let currentFood = null;
 let currentAlternatives = [];
 let selectedAlternative = null;
 
-// DOM elements
+// DOM elements with null checks
+const landingPage = document.getElementById('landingPage');
+const mainApp = document.getElementById('mainApp');
+const getStartedBtn = document.getElementById('getStartedBtn');
 const foodInput = document.getElementById('foodInput');
 const searchBtn = document.getElementById('searchBtn');
+const loading = document.getElementById('loading');
+const error = document.getElementById('error');
 const resultsSection = document.getElementById('resultsSection');
 const originalFoodCard = document.getElementById('originalFoodCard');
 const alternativesSection = document.getElementById('alternativesSection');
 const alternativeButtons = document.getElementById('alternativeButtons');
 const alternativeDetails = document.getElementById('alternativeDetails');
 const comparisonSection = document.getElementById('comparisonSection');
-const loading = document.getElementById('loading');
-const error = document.getElementById('error');
 
-// Profile elements
+// Profile elements (may not exist in all views)
 const weightInput = document.getElementById('weight');
 const heightInput = document.getElementById('height');
 const ageInput = document.getElementById('age');
@@ -25,42 +28,57 @@ const genderSelect = document.getElementById('gender');
 const activitySelect = document.getElementById('activity');
 const bmiDisplay = document.getElementById('bmiDisplay');
 
-// Curated alternatives for common foods
-const curatedAlternatives = {
-    'pizza': ['cauliflower pizza', 'zucchini pizza', 'portobello pizza', 'whole wheat pizza'],
-    'burger': ['turkey burger', 'veggie burger', 'portobello burger', 'chicken burger'],
-    'fries': ['sweet potato fries', 'baked potato wedges', 'air fryer fries', 'zucchini fries'],
-    'soda': ['sparkling water', 'kombucha', 'herbal tea', 'fruit infused water'],
-    'ice cream': ['frozen yogurt', 'sorbet', 'banana ice cream', 'coconut ice cream'],
-    'chips': ['baked chips', 'vegetable chips', 'popcorn', 'rice cakes'],
-    'pasta': ['zucchini noodles', 'shirataki noodles', 'whole wheat pasta', 'lentil pasta'],
-    'bread': ['whole grain bread', 'cauliflower bread', 'lettuce wraps', 'sweet potato slices'],
-    'rice': ['cauliflower rice', 'quinoa', 'brown rice', 'wild rice'],
-    'chocolate': ['dark chocolate', 'cacao nibs', 'carob', 'fruit']
+// Debug: Log which elements are missing
+console.log('🔍 DOM Elements Check:');
+const requiredElements = {
+    landingPage, mainApp, getStartedBtn, foodInput, searchBtn, 
+    loading, error, resultsSection, originalFoodCard, 
+    alternativesSection, alternativeButtons, alternativeDetails, comparisonSection
 };
 
-// Landing page elements
-const getStartedBtn = document.getElementById('getStartedBtn');
-const landingPage = document.getElementById('landingPage');
-const mainApp = document.getElementById('mainApp');
+for (const [name, element] of Object.entries(requiredElements)) {
+    if (!element) {
+        console.warn(`❌ Missing required element: ${name}`);
+    } else {
+        console.log(`✅ Found element: ${name}`);
+    }
+}
 
-// Event listeners
-getStartedBtn.addEventListener('click', () => {
-    landingPage.style.display = 'none';
-    mainApp.style.display = 'block';
-});
+const profileElements = {
+    weightInput, heightInput, ageInput, genderSelect, activitySelect, bmiDisplay
+};
 
-searchBtn.addEventListener('click', searchFood);
-foodInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') searchFood();
+for (const [name, element] of Object.entries(profileElements)) {
+    if (!element) {
+        console.warn(`⚠️ Missing profile element: ${name}`);
+    } else {
+        console.log(`✅ Found profile element: ${name}`);
+    }
+}
+
+// Event listeners with null checks
+if (getStartedBtn) {
+    getStartedBtn.addEventListener('click', showMainApp);
+} else {
+    console.error('❌ Cannot attach event to getStartedBtn - element not found');
+}
+
+if (searchBtn) {
+    searchBtn.addEventListener('click', searchFood);
+} else {
+    console.error('❌ Cannot attach event to searchBtn - element not found');
+}
+
+// Real-time BMI calculation (only if elements exist)
+if (weightInput && heightInput) {
+    [weightInput, heightInput].forEach(input => {
+        input.addEventListener('input', calculateBMI);
     });
+} else {
+    console.warn('⚠️ BMI calculation not available - profile elements missing');
+}
 
-// Profile event listeners for BMI calculation
-[weightInput, heightInput].forEach(input => {
-    input.addEventListener('input', calculateBMI);
-    });
-    
-// Event delegation for dynamically created buttons
+// Event delegation for dynamic content
 document.addEventListener('click', (e) => {
     if (e.target.classList.contains('alternative-btn')) {
         const index = parseInt(e.target.dataset.index);
@@ -72,8 +90,23 @@ document.addEventListener('click', (e) => {
     }
 });
 
-// Main search function
+function showMainApp() {
+    if (!landingPage || !mainApp) {
+        console.error('❌ Cannot transition - landing page or main app elements missing');
+        return;
+    }
+    landingPage.style.display = 'none';
+    mainApp.style.display = 'block';
+}
+
+// Main search function powered by LLM
 async function searchFood() {
+    if (!foodInput) {
+        console.error('❌ Cannot search - food input element missing');
+        showError('Search functionality not available');
+        return;
+    }
+    
     const query = foodInput.value.trim();
     if (!query) {
         showError('Please enter a food item to search');
@@ -84,30 +117,35 @@ async function searchFood() {
     hideError();
     
     try {
-        // Search for main food
-        const response = await fetch(`/api/usda_search?query=${encodeURIComponent(query)}&pageSize=5`);
+        // Search for main food using LLM
+        const response = await fetch(`/api/food_search?query=${encodeURIComponent(query)}`);
         if (!response.ok) throw new Error('Search failed');
         
         const data = await response.json();
+        console.log('LLM food search response:', data);
         
         if (data.error) {
             throw new Error(data.error);
         }
         
-        if (!data.foods || data.foods.length === 0) {
-            showError('No foods found. Try searching for common foods like "pizza", "burger", or "chicken".');
+        if (!data.products || data.products.length === 0) {
+            showError('Could not analyze this food item. Try common foods like "pizza", "burger", or brand names.');
             return;
         }
 
         // Use the first result as the main food
-        currentFood = data.foods[0];
+        currentFood = data.products[0];
         displayOriginalFood(currentFood);
 
-        // Search for alternatives
-        await findAlternatives(query);
+        // Search for alternatives using dedicated LLM endpoint
+        console.log('🔧 About to call findAlternativesLLM with:', currentFood);
+        await findAlternativesLLM(currentFood);
+        console.log('🔧 findAlternativesLLM completed');
 
         // Show results
-        resultsSection.style.display = 'block';
+        if (resultsSection) {
+            resultsSection.style.display = 'block';
+        }
         
     } catch (err) {
         console.error('Search error:', err);
@@ -117,188 +155,93 @@ async function searchFood() {
     }
 }
 
-// Find healthier alternatives using hybrid approach (curated + category filtering)
-async function findAlternatives(originalQuery) {
-    console.log(`🔍 Finding alternatives for: ${originalQuery}`);
-    console.log(`📋 Original food category: ${currentFood.foodCategory || 'Unknown'}`);
+// LLM-powered alternative finding
+async function findAlternativesLLM(food) {
+    console.log('🤖 Finding alternatives using LLM for:', food.product_name);
     
-    const alternatives = [];
-    
-    // Step 1: Try curated alternatives for common foods
-    const lowerQuery = originalQuery.toLowerCase();
-    let foundCurated = false;
-    
-    for (const [key, alts] of Object.entries(curatedAlternatives)) {
-        if (lowerQuery.includes(key)) {
-            console.log(`✅ Found curated alternatives for "${key}":`, alts);
-            foundCurated = true;
-            
-            // Search for each curated alternative
-            for (const alt of alts) {
-                try {
-                    const response = await fetch(`/api/usda_search?query=${encodeURIComponent(alt)}&pageSize=3`);
-                    if (response.ok) {
-                        const data = await response.json();
-                        if (data.foods && data.foods.length > 0) {
-                            const filtered = data.foods.filter(food => 
-                                food.fdcId !== currentFood.fdcId &&
-                                getCalories(food) > 0 &&
-                                getCalories(food) < getCalories(currentFood)
-                            );
-                            alternatives.push(...filtered);
-                        }
-                    }
-                } catch (err) {
-                    console.warn(`Failed to search for curated term ${alt}:`, err);
-                }
-            }
-            break;
-        }
-    }
-    
-    // Step 2: If we found curated alternatives, use them
-    if (foundCurated && alternatives.length > 0) {
-        const uniqueAlternatives = alternatives.filter((food, index, arr) => 
-            arr.findIndex(f => f.fdcId === food.fdcId) === index
-        ).slice(0, 6);
+    try {
+        const calories = getCalories(food);
+        const category = food.categories || '';
         
-        console.log(`🎉 Using ${uniqueAlternatives.length} curated alternatives`);
-        currentAlternatives = uniqueAlternatives;
-        displayAlternatives(uniqueAlternatives);
-        return;
-    }
-    
-    // Step 3: For non-curated foods, use category-based filtering
-    console.log(`🔍 No curated alternatives found, trying category-based search...`);
-    
-    if (currentFood.foodCategory) {
-        try {
-            const response = await fetch(`/api/usda_search?query=${encodeURIComponent(currentFood.foodCategory)}&pageSize=10`);
-            if (response.ok) {
-                const data = await response.json();
-                if (data.foods && data.foods.length > 0) {
-                    const filtered = data.foods.filter(food => 
-                        food.fdcId !== currentFood.fdcId &&
-                        getCalories(food) > 0 &&
-                        getCalories(food) < getCalories(currentFood) &&
-                        isSameCategoryOrSimilar(currentFood, food) &&
-                        hasIngredientOverlap(currentFood, food)
-                    );
-                    alternatives.push(...filtered);
+        const response = await fetch(`/api/find_alternatives?food_name=${encodeURIComponent(food.product_name)}&calories=${calories}&category=${encodeURIComponent(category)}`);
+        
+        if (!response.ok) {
+            throw new Error('Alternative search failed');
+        }
+        
+        const data = await response.json();
+        console.log('🎉 LLM alternatives response:', data);
+        
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        if (data.alternatives && data.alternatives.length > 0) {
+            console.log('🔧 Found', data.alternatives.length, 'alternatives, setting currentAlternatives');
+            currentAlternatives = data.alternatives;
+            console.log('🔧 About to call displayAlternativeButtons');
+            displayAlternativeButtons(data.alternatives);
+            console.log('🔧 displayAlternativeButtons call completed');
+        } else {
+            console.log('🔧 No alternatives found or empty array');
+            // Show no alternatives message
+            if (alternativeButtons) {
+                alternativeButtons.innerHTML = `
+                    <div style="text-align: center; padding: 20px; background: #fff3cd; border-radius: 8px; margin: 10px 0;">
+                        <h4 style="margin: 0 0 10px 0;">No healthier alternatives found</h4>
+                        <p style="margin: 0; color: #666;">Try searching for more specific product names or brands.</p>
+                    </div>
+                `;
+                alternativeButtons.style.display = 'block';
+                
+                // Show the parent alternatives section
+                if (alternativesSection) {
+                    alternativesSection.style.display = 'block';
                 }
             }
-        } catch (err) {
-            console.warn(`Failed to search by category:`, err);
         }
-    }
-    
-    // Step 4: Display results or show no alternatives message
-    const uniqueAlternatives = alternatives.filter((food, index, arr) => 
-        arr.findIndex(f => f.fdcId === food.fdcId) === index
-    ).slice(0, 6);
-    
-    if (uniqueAlternatives.length > 0) {
-        console.log(`📋 Found ${uniqueAlternatives.length} category-based alternatives`);
-        currentAlternatives = uniqueAlternatives;
-        displayAlternatives(uniqueAlternatives);
-    } else {
-        console.log(`❌ No suitable alternatives found`);
-        alternativesSection.style.display = 'block';
-        alternativeButtons.innerHTML = `
-            <div style="text-align: center; padding: 20px; background: #fff3cd; border-radius: 10px; border-left: 4px solid #ffc107;">
-                <h4 style="color: #856404; margin-bottom: 10px;">No healthier alternatives found</h4>
-                <p style="color: #856404; margin: 0;">
-                    We couldn't find suitable healthier alternatives for "${currentFood.description}" that match the same food category.
-                </p>
-            </div>
-        `;
+        
+    } catch (err) {
+        console.error('LLM alternative search error:', err);
+        if (alternativeButtons) {
+            alternativeButtons.innerHTML = `
+                <div style="text-align: center; padding: 20px; background: #f8d7da; border-radius: 8px; margin: 10px 0;">
+                    <h4 style="margin: 0 0 10px 0;">⚠️ Alternative search failed</h4>
+                    <p style="margin: 0; color: #666;">Error: ${err.message}</p>
+                </div>
+            `;
+        }
         currentAlternatives = [];
     }
 }
 
-// Check if two foods are in the same category or similar
-function isSameCategoryOrSimilar(originalFood, alternativeFood) {
-    // Check exact category match
-    if (originalFood.foodCategory && alternativeFood.foodCategory) {
-        if (originalFood.foodCategory === alternativeFood.foodCategory) {
-            console.log(`✅ Same category: ${originalFood.foodCategory}`);
-            return true;
-        }
-    }
-    
-    // Check for similar food types
-    const originalDesc = originalFood.description.toLowerCase();
-    const altDesc = alternativeFood.description.toLowerCase();
-    
-    const foodTypes = ['pizza', 'burger', 'sandwich', 'chicken', 'beef', 'pasta', 'bread', 'cheese', 'milk', 'yogurt'];
-    
-    for (const type of foodTypes) {
-        if (originalDesc.includes(type) && altDesc.includes(type)) {
-            console.log(`✅ Same food type: ${type}`);
-            return true;
-        }
-    }
-    
-    console.log(`❌ Different category/type: "${originalDesc}" vs "${altDesc}"`);
-    return false;
-}
-
-// Check if two foods have ingredient overlap
-function hasIngredientOverlap(originalFood, alternativeFood) {
-    const originalDesc = originalFood.description.toLowerCase();
-    const altDesc = alternativeFood.description.toLowerCase();
-    
-    // Extract meaningful words from descriptions
-    const originalWords = originalDesc.split(/[\s,]+/).filter(word => 
-        word.length > 3 && 
-        !['with', 'and', 'the', 'from', 'for'].includes(word)
-    );
-    
-    const altWords = altDesc.split(/[\s,]+/).filter(word => 
-        word.length > 3 && 
-        !['with', 'and', 'the', 'from', 'for'].includes(word)
-    );
-    
-    // Find common words
-    const commonWords = originalWords.filter(word => altWords.includes(word));
-    
-    // Need at least 1 common meaningful word
-    if (commonWords.length >= 1) {
-        console.log(`✅ Ingredient overlap: ${commonWords.join(', ')}`);
-        return true;
-    }
-    
-    console.log(`❌ No ingredient overlap: "${originalDesc}" vs "${altDesc}"`);
-    return false;
-}
-
-// Display the original food
+// Display original food with LLM data
 function displayOriginalFood(food) {
     const calories = getCalories(food);
-    const protein = getNutrient(food, 'Protein');
-    const carbs = getNutrient(food, 'Carbohydrate');
-    const fat = getNutrient(food, 'Total lipid');
-    const fiber = getNutrient(food, 'Fiber');
-    const sugar = getNutrient(food, 'Sugars');
-    const sodium = getNutrient(food, 'Sodium');
-    const calcium = getNutrient(food, 'Calcium');
-    const iron = getNutrient(food, 'Iron');
-    const vitaminC = getNutrient(food, 'Vitamin C');
-    
-    // Calculate weight impact for original food
+    const protein = getNutrient(food, 'protein');
+    const carbs = getNutrient(food, 'carbohydrate');
+    const fat = getNutrient(food, 'fat');
+    const fiber = getNutrient(food, 'fiber');
+    const sugar = getNutrient(food, 'sugars');
+    const sodium = getNutrient(food, 'sodium');
+    const calcium = getNutrient(food, 'calcium');
+    const iron = getNutrient(food, 'iron');
+    const vitaminC = getNutrient(food, 'vitamin c');
+    const vitaminA = getNutrient(food, 'vitamin a');
+    const potassium = getNutrient(food, 'potassium');
+
+    // Calculate weight impact
     const userProfile = getUserProfile();
     const dailyCalories = calculateDailyCalories(userProfile);
     
     let weightImpactSection = '';
     if (calories > 0) {
-        // Calculate how this food impacts weight if eaten regularly
-        const weeklyCalories = calories * 7; // If eaten daily for a week
-        const monthlyCalories = calories * 30; // If eaten daily for a month
+        const weeklyCalories = calories * 7;
+        const monthlyCalories = calories * 30;
         
-        const weeklyWeightKg = (weeklyCalories / 7700);
-        const monthlyWeightKg = (monthlyCalories / 7700);
+        const weeklyWeightKg = weeklyCalories / 7700;
+        const monthlyWeightKg = monthlyCalories / 7700;
         
-        // Adjust for user profile if available
         const adjustedWeeklyKg = userProfile.weight ? 
             getPersonalizedWeightImpact(weeklyCalories, userProfile) : weeklyWeightKg;
         const adjustedMonthlyKg = userProfile.weight ? 
@@ -337,421 +280,283 @@ function displayOriginalFood(food) {
         `;
     }
 
-    originalFoodCard.innerHTML = `
-        <h3>${food.description}</h3>
-        <div class="nutrition-grid">
-            <div class="nutrition-item">
-                <span class="nutrition-value">${calories}</span>
-                <div class="nutrition-label">Calories</div>
+    if (originalFoodCard) {
+        originalFoodCard.innerHTML = `
+            <h3>${food.product_name || food.brands || 'Unknown Product'}</h3>
+            ${food.brands ? `<div class="product-brand">${food.brands}</div>` : ''}
+            ${food.nutriscore_grade ? `<div class="nutri-score-display">Nutri-Score: <span class="nutri-score nutri-${food.nutriscore_grade.toLowerCase()}">${food.nutriscore_grade.toUpperCase()}</span></div>` : ''}
+            
+            <div class="nutrition-grid">
+                <div class="nutrition-item">
+                    <span class="nutrition-value">${calories}</span>
+                    <div class="nutrition-label">Calories</div>
+                </div>
+                <div class="nutrition-item">
+                    <span class="nutrition-value">${protein}g</span>
+                    <div class="nutrition-label">Protein</div>
+                </div>
+                <div class="nutrition-item">
+                    <span class="nutrition-value">${carbs}g</span>
+                    <div class="nutrition-label">Carbs</div>
+                </div>
+                <div class="nutrition-item">
+                    <span class="nutrition-value">${fat}g</span>
+                    <div class="nutrition-label">Fat</div>
+                </div>
+                <div class="nutrition-item">
+                    <span class="nutrition-value">${fiber}g</span>
+                    <div class="nutrition-label">Fiber</div>
+                </div>
+                <div class="nutrition-item">
+                    <span class="nutrition-value">${sugar}g</span>
+                    <div class="nutrition-label">Sugar</div>
+                </div>
+                <div class="nutrition-item">
+                    <span class="nutrition-value">${sodium}mg</span>
+                    <div class="nutrition-label">Sodium</div>
+                </div>
+                <div class="nutrition-item">
+                    <span class="nutrition-value">${calcium}mg</span>
+                    <div class="nutrition-label">Calcium</div>
+                </div>
+                <div class="nutrition-item">
+                    <span class="nutrition-value">${iron}mg</span>
+                    <div class="nutrition-label">Iron</div>
+                </div>
+                <div class="nutrition-item">
+                    <span class="nutrition-value">${vitaminC}mg</span>
+                    <div class="nutrition-label">Vitamin C</div>
+                </div>
+                <div class="nutrition-item">
+                    <span class="nutrition-value">${potassium}mg</span>
+                    <div class="nutrition-label">Potassium</div>
+                </div>
+                <div class="nutrition-item">
+                    <span class="nutrition-value">${vitaminA}mcg</span>
+                    <div class="nutrition-label">Vitamin A</div>
+                </div>
             </div>
-            <div class="nutrition-item">
-                <span class="nutrition-value">${protein}g</span>
-                <div class="nutrition-label">Protein</div>
-            </div>
-            <div class="nutrition-item">
-                <span class="nutrition-value">${carbs}g</span>
-                <div class="nutrition-label">Carbs</div>
-            </div>
-            <div class="nutrition-item">
-                <span class="nutrition-value">${fat}g</span>
-                <div class="nutrition-label">Fat</div>
-            </div>
-            <div class="nutrition-item">
-                <span class="nutrition-value">${fiber}g</span>
-                <div class="nutrition-label">Fiber</div>
-            </div>
-            <div class="nutrition-item">
-                <span class="nutrition-value">${sugar}g</span>
-                <div class="nutrition-label">Sugar</div>
-            </div>
-            <div class="nutrition-item">
-                <span class="nutrition-value">${sodium}mg</span>
-                <div class="nutrition-label">Sodium</div>
-            </div>
-            <div class="nutrition-item">
-                <span class="nutrition-value">${calcium}mg</span>
-                <div class="nutrition-label">Calcium</div>
-            </div>
-            <div class="nutrition-item">
-                <span class="nutrition-value">${iron}mg</span>
-                <div class="nutrition-label">Iron</div>
-            </div>
-            <div class="nutrition-item">
-                <span class="nutrition-value">${vitaminC}mg</span>
-                <div class="nutrition-label">Vitamin C</div>
-            </div>
-        </div>
-        ${weightImpactSection}
-    `;
+            ${weightImpactSection}
+        `;
+        
+        originalFoodCard.style.display = 'block';
+    }
 }
 
-// Display alternative buttons
-function displayAlternatives(alternatives) {
+// Display LLM-generated alternatives
+function displayAlternativeButtons(alternatives) {
+    console.log('🔧 displayAlternativeButtons called with:', alternatives.length, 'alternatives');
+    console.log('🔧 alternativeButtons element:', alternativeButtons);
+    
     if (alternatives.length === 0) {
-        alternativesSection.style.display = 'none';
-        showError('No healthier alternatives found for this food.');
+        if (alternativeButtons) {
+            alternativeButtons.innerHTML = `
+                <div style="text-align: center; padding: 20px; background: #fff3cd; border-radius: 8px; margin: 10px 0;">
+                    <h4 style="margin: 0 0 10px 0;">No healthier alternatives found</h4>
+                    <p style="margin: 0; color: #666;">Try searching for more specific product names or brands.</p>
+                </div>
+            `;
+            
+            // Show the parent alternatives section
+            if (alternativesSection) {
+                alternativesSection.style.display = 'block';
+            }
+        }
         return;
     }
     
-    alternativeButtons.innerHTML = alternatives.map((food, index) => {
-        const calories = getCalories(food);
-        const originalCalories = getCalories(currentFood);
-        const savings = originalCalories - calories;
+    if (alternativeButtons) {
+        console.log('🔧 Rendering', alternatives.length, 'alternatives to DOM');
         
-        return `
-            <button class="alternative-btn" data-index="${index}">
-                <div>${food.description}</div>
-                <small>${calories} cal (${savings > 0 ? '-' + savings : '+' + Math.abs(savings)} cal)</small>
-                </button>
-        `;
-    }).join('');
-
-    alternativesSection.style.display = 'block';
+        alternativeButtons.innerHTML = '<h3>AI-Recommended Healthier Alternatives</h3>' + 
+            alternatives.map((alternative, index) => {
+                const calories = getCalories(alternative);
+                const nutriScore = alternative.nutriscore_grade ? 
+                    `<span class="nutri-score nutri-${alternative.nutriscore_grade.toLowerCase()}">${alternative.nutriscore_grade.toUpperCase()}</span>` : '';
+                const brand = alternative.brands ? `<div class="brand">${alternative.brands}</div>` : '';
+                const healthBenefit = alternative.health_benefits ? `<div class="health-benefit">${alternative.health_benefits}</div>` : '';
+                
+                return `
+                    <button class="alternative-btn" data-index="${index}">
+                        <div class="alt-name">${alternative.product_name || 'Unknown Product'}</div>
+                        ${brand}
+                        <div class="alt-info">
+                            <span class="alt-calories">${calories} cal</span>
+                            ${nutriScore}
+                        </div>
+                        ${healthBenefit}
+                    </button>
+                `;
+            }).join('');
+            
+        alternativeButtons.style.display = 'block';
+        
+        // Show the parent alternatives section
+        if (alternativesSection) {
+            alternativesSection.style.display = 'block';
+            console.log('🔧 alternativesSection shown');
+        }
+        
+        console.log('🔧 alternatives rendered, display set to block');
+        console.log('🔧 alternativeButtons innerHTML length:', alternativeButtons.innerHTML.length);
+    } else {
+        console.error('❌ alternativeButtons element not found!');
+    }
 }
 
-// Show details of selected alternative
+// Show detailed alternative information
 function showAlternativeDetails(index) {
     selectedAlternative = currentAlternatives[index];
     if (!selectedAlternative) return;
 
     const calories = getCalories(selectedAlternative);
-    const protein = getNutrient(selectedAlternative, 'Protein');
-    const carbs = getNutrient(selectedAlternative, 'Carbohydrate');
-    const fat = getNutrient(selectedAlternative, 'Total lipid');
-    const fiber = getNutrient(selectedAlternative, 'Fiber');
-    const sugar = getNutrient(selectedAlternative, 'Sugars');
-    const sodium = getNutrient(selectedAlternative, 'Sodium');
-    const calcium = getNutrient(selectedAlternative, 'Calcium');
-    const iron = getNutrient(selectedAlternative, 'Iron');
-    const vitaminC = getNutrient(selectedAlternative, 'Vitamin C');
-    const vitaminA = getNutrient(selectedAlternative, 'Vitamin A');
-    const potassium = getNutrient(selectedAlternative, 'Potassium');
+    const protein = getNutrient(selectedAlternative, 'protein');
+    const carbs = getNutrient(selectedAlternative, 'carbohydrate');
+    const fat = getNutrient(selectedAlternative, 'fat');
+    const fiber = getNutrient(selectedAlternative, 'fiber');
+    const sugar = getNutrient(selectedAlternative, 'sugars');
+    const sodium = getNutrient(selectedAlternative, 'sodium');
+    const calcium = getNutrient(selectedAlternative, 'calcium');
+    const iron = getNutrient(selectedAlternative, 'iron');
+    const vitaminC = getNutrient(selectedAlternative, 'vitamin c');
+    const vitaminA = getNutrient(selectedAlternative, 'vitamin a');
+    const potassium = getNutrient(selectedAlternative, 'potassium');
 
-    alternativeDetails.innerHTML = `
-        <h3>${selectedAlternative.description}</h3>
-        
-        <table class="nutrition-table">
-            <thead>
-                <tr>
-                    <th>Nutrient</th>
-                    <th>Amount (per 100g)</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr><td>Calories</td><td>${calories}</td></tr>
-                <tr><td>Protein</td><td>${protein}g</td></tr>
-                <tr><td>Carbohydrates</td><td>${carbs}g</td></tr>
-                <tr><td>Fat</td><td>${fat}g</td></tr>
-                <tr><td>Fiber</td><td>${fiber}g</td></tr>
-                <tr><td>Sugar</td><td>${sugar}g</td></tr>
-                <tr><td>Sodium</td><td>${sodium}mg</td></tr>
-                <tr><td>Calcium</td><td>${calcium}mg</td></tr>
-                <tr><td>Iron</td><td>${iron}mg</td></tr>
-                <tr><td>Potassium</td><td>${potassium}mg</td></tr>
-                <tr><td>Vitamin C</td><td>${vitaminC}mg</td></tr>
-                <tr><td>Vitamin A</td><td>${vitaminA}mcg</td></tr>
-            </tbody>
-        </table>
+    if (alternativeDetails) {
+        alternativeDetails.innerHTML = `
+            <h3>${selectedAlternative.product_name || selectedAlternative.brands || 'Unknown Product'}</h3>
+            ${selectedAlternative.brands ? `<div class="product-brand">${selectedAlternative.brands}</div>` : ''}
+            ${selectedAlternative.nutriscore_grade ? `<div class="nutri-score-display">Nutri-Score: <span class="nutri-score nutri-${selectedAlternative.nutriscore_grade.toLowerCase()}">${selectedAlternative.nutriscore_grade.toUpperCase()}</span></div>` : ''}
+            ${selectedAlternative.health_benefits ? `<div class="health-benefits">💡 <strong>Why it's healthier:</strong> ${selectedAlternative.health_benefits}</div>` : ''}
+            
+            <table class="nutrition-table">
+                <thead>
+                    <tr>
+                        <th>Nutrient</th>
+                        <th>Amount (per 100g)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>Calories</td><td>${calories}</td></tr>
+                    <tr><td>Protein</td><td>${protein}g</td></tr>
+                    <tr><td>Carbohydrates</td><td>${carbs}g</td></tr>
+                    <tr><td>Fat</td><td>${fat}g</td></tr>
+                    <tr><td>Fiber</td><td>${fiber}g</td></tr>
+                    <tr><td>Sugar</td><td>${sugar}g</td></tr>
+                    <tr><td>Sodium</td><td>${sodium}mg</td></tr>
+                    <tr><td>Calcium</td><td>${calcium}mg</td></tr>
+                    <tr><td>Iron</td><td>${iron}mg</td></tr>
+                    <tr><td>Potassium</td><td>${potassium}mg</td></tr>
+                    <tr><td>Vitamin C</td><td>${vitaminC}mg</td></tr>
+                    <tr><td>Vitamin A</td><td>${vitaminA}mcg</td></tr>
+                </tbody>
+            </table>
 
-        <div class="action-buttons">
-            <button class="see-more-btn">See Ingredients</button>
-            <button class="compare-btn">Compare Foods</button>
-        </div>
-
-        <div class="ingredients-section" style="display: none;">
-            <div class="ingredients-list">
-                ${getIngredients(selectedAlternative)}
+            <div class="action-buttons">
+                <button class="see-more-btn">See Ingredients</button>
+                <button class="compare-btn">Compare Foods</button>
             </div>
-        </div>
-    `;
-    
-    alternativeDetails.style.display = 'block';
-}
 
-// Show side-by-side comparison
-function showComparison() {
-    if (!currentFood || !selectedAlternative) return;
-
-    const originalCal = getCalories(currentFood);
-    const altCal = getCalories(selectedAlternative);
-    const calorieSavings = originalCal - altCal;
-
-    // Calculate personalized weight impact
-    const userProfile = getUserProfile();
-    const weightImpactKg = getPersonalizedWeightImpact(calorieSavings, userProfile);
-    const periods = ['1 week', '1 month', '3 months', '6 months', '1 year'];
-    const multipliers = [1, 4.3, 13, 26, 52];
-
-    comparisonSection.innerHTML = `
-        <h2>Food Comparison</h2>
+            <div class="ingredients-section" style="display: none;">
+                <div class="ingredients-list">
+                    ${getIngredients(selectedAlternative)}
+                </div>
+            </div>
+        `;
         
-        <table class="comparison-table">
-            <thead>
-                <tr>
-                    <th>Nutrient</th>
-                    <th class="original-col">${currentFood.description}</th>
-                    <th class="alternative-col">${selectedAlternative.description}</th>
-                    <th>Difference</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>Calories</td>
-                    <td class="original-col">${originalCal}</td>
-                    <td class="alternative-col">${altCal}</td>
-                    <td class="${calorieSavings > 0 ? 'positive-highlight' : 'negative-highlight'}">
-                        ${calorieSavings > 0 ? '-' : '+'}${Math.abs(calorieSavings)} cal
-                    </td>
-                </tr>
-                <tr>
-                    <td>Protein</td>
-                    <td class="original-col">${getNutrient(currentFood, 'Protein')}g</td>
-                    <td class="alternative-col">${getNutrient(selectedAlternative, 'Protein')}g</td>
-                    <td>-</td>
-                </tr>
-                <tr>
-                    <td>Carbs</td>
-                    <td class="original-col">${getNutrient(currentFood, 'Carbohydrate')}g</td>
-                    <td class="alternative-col">${getNutrient(selectedAlternative, 'Carbohydrate')}g</td>
-                    <td>-</td>
-                </tr>
-                <tr>
-                    <td>Fat</td>
-                    <td class="original-col">${getNutrient(currentFood, 'Total lipid')}g</td>
-                    <td class="alternative-col">${getNutrient(selectedAlternative, 'Total lipid')}g</td>
-                    <td>-</td>
-                </tr>
-                <tr>
-                    <td>Fiber</td>
-                    <td class="original-col">${getNutrient(currentFood, 'Fiber')}g</td>
-                    <td class="alternative-col">${getNutrient(selectedAlternative, 'Fiber')}g</td>
-                    <td>-</td>
-                </tr>
-                <tr>
-                    <td>Sugar</td>
-                    <td class="original-col">${getNutrient(currentFood, 'Sugars')}g</td>
-                    <td class="alternative-col">${getNutrient(selectedAlternative, 'Sugars')}g</td>
-                    <td>-</td>
-                </tr>
-                <tr>
-                    <td>Sodium</td>
-                    <td class="original-col">${getNutrient(currentFood, 'Sodium')}mg</td>
-                    <td class="alternative-col">${getNutrient(selectedAlternative, 'Sodium')}mg</td>
-                    <td>-</td>
-                </tr>
-            </tbody>
-        </table>
-
-        ${getAlternativeWeightImpact(selectedAlternative)}
-    `;
-
-    comparisonSection.style.display = 'block';
-}
-
-// Toggle ingredients display
-function toggleIngredients(button) {
-    const ingredientsSection = button.parentElement.nextElementSibling;
-    if (ingredientsSection.style.display === 'none') {
-        ingredientsSection.style.display = 'block';
-        button.textContent = 'Hide Ingredients';
-    } else {
-        ingredientsSection.style.display = 'none';
-        button.textContent = 'See Ingredients';
+        alternativeDetails.style.display = 'block';
     }
 }
 
-// Helper functions
-function getCalories(food) {
-    return getNutrient(food, 'Energy') || 0;
-}
-
+// Updated nutrition extraction for LLM format
 function getNutrient(food, nutrientName) {
-    if (!food.foodNutrients) return 0;
+    if (!food || !food.nutriments) return 0;
     
-    // More comprehensive nutrient name matching
-    const nutrient = food.foodNutrients.find(n => {
-        if (!n.nutrientName) return false;
-        const name = n.nutrientName.toLowerCase();
-        const searchName = nutrientName.toLowerCase();
-        
-        // Direct matches
-        if (name.includes(searchName)) return true;
-        
-        // Special cases for better matching
-        if (searchName === 'energy' && (name.includes('energy') || name.includes('calorie'))) return true;
-        if (searchName === 'protein' && name.includes('protein')) return true;
-        if (searchName === 'carbohydrate' && (name.includes('carbohydrate') || name.includes('carb'))) return true;
-        if (searchName === 'total lipid' && (name.includes('total lipid') || name.includes('fat, total'))) return true;
-        if (searchName === 'fiber' && (name.includes('fiber') || name.includes('fibre'))) return true;
-        if (searchName === 'sugars' && (name.includes('sugars') || name.includes('sugar'))) return true;
-        if (searchName === 'sodium' && name.includes('sodium')) return true;
-        if (searchName === 'calcium' && name.includes('calcium')) return true;
-        if (searchName === 'iron' && name.includes('iron')) return true;
-        if (searchName === 'vitamin c' && (name.includes('vitamin c') || name.includes('ascorbic'))) return true;
-        if (searchName === 'vitamin a' && name.includes('vitamin a')) return true;
-        if (searchName === 'potassium' && name.includes('potassium')) return true;
-        
-        return false;
-    });
+    const searchName = nutrientName.toLowerCase();
+    let value = 0;
     
-    if (nutrient && nutrient.value !== undefined && nutrient.value !== null) {
-        // Handle very small values and round appropriately
-        const value = parseFloat(nutrient.value);
-        if (value < 0.1) return 0;
-        if (value < 1) return Math.round(value * 10) / 10; // One decimal place
-        return Math.round(value);
+    // LLM nutriment mapping (matches backend structure)
+    switch (searchName) {
+        case 'energy':
+        case 'calories':
+            value = food.nutriments['energy-kcal_100g'] || food.nutriments['energy_100g'] || 0;
+            break;
+        case 'protein':
+            value = food.nutriments['proteins_100g'] || 0;
+            break;
+        case 'carbohydrate':
+        case 'carbs':
+            value = food.nutriments['carbohydrates_100g'] || 0;
+            break;
+        case 'total lipid':
+        case 'fat':
+            value = food.nutriments['fat_100g'] || 0;
+            break;
+        case 'fiber':
+        case 'fibre':
+            value = food.nutriments['fiber_100g'] || 0;
+            break;
+        case 'sugars':
+        case 'sugar':
+            value = food.nutriments['sugars_100g'] || 0;
+            break;
+        case 'sodium':
+            value = food.nutriments['sodium_100g'] || 0;
+            // Convert from g to mg (LLM provides in grams)
+            value = value * 1000;
+            break;
+        case 'calcium':
+            value = food.nutriments['calcium_100g'] || 0;
+            // Convert from g to mg
+            value = value * 1000;
+            break;
+        case 'iron':
+            value = food.nutriments['iron_100g'] || 0;
+            // Convert from g to mg
+            value = value * 1000;
+            break;
+        case 'vitamin c':
+            value = food.nutriments['vitamin-c_100g'] || 0;
+            // Convert from g to mg
+            value = value * 1000;
+            break;
+        case 'vitamin a':
+            value = food.nutriments['vitamin-a_100g'] || 0;
+            // Convert from g to μg
+            value = value * 1000000;
+            break;
+        case 'potassium':
+            value = food.nutriments['potassium_100g'] || 0;
+            // Convert from g to mg
+            value = value * 1000;
+            break;
+        default:
+            return 0;
     }
     
-    return 0;
+    // Handle very small values and round appropriately
+    value = parseFloat(value);
+    if (isNaN(value) || value < 0.1) return 0;
+    if (value < 1) return Math.round(value * 10) / 10;
+    return Math.round(value * 100) / 100;
+}
+
+function getCalories(food) {
+    return getNutrient(food, 'calories') || 0;
 }
 
 function getIngredients(food) {
-    if (food.ingredients) {
-        return `<div class="ingredient-item">${food.ingredients}</div>`;
+    if (food && food.ingredients_text && food.ingredients_text.trim()) {
+        return `<div class="ingredient-item">${food.ingredients_text}</div>`;
     }
     
-    if (food.foodNutrients && food.foodNutrients.length > 0) {
-        return '<div class="ingredient-item">Detailed ingredient information not available</div>';
-    }
-    
-    return '<div class="ingredient-item">No ingredient information available</div>';
+    return '<div class="ingredient-item">Ingredient information not available for this product</div>';
 }
 
-function getAlternativeWeightImpact(alternative) {
-    const calories = getCalories(alternative);
-    const originalCalories = getCalories(currentFood);
-    const calorieSavings = originalCalories - calories;
-    
-    const userProfile = getUserProfile();
-    
-    // Calculate original food impact (daily consumption)
-    const originalWeeklyWeight = getPersonalizedWeightImpact(originalCalories * 7, userProfile);
-    const originalMonthlyWeight = getPersonalizedWeightImpact(originalCalories * 30, userProfile);
-    
-    // Calculate alternative food impact (daily consumption)
-    const altWeeklyWeight = getPersonalizedWeightImpact(calories * 7, userProfile);
-    const altMonthlyWeight = getPersonalizedWeightImpact(calories * 30, userProfile);
-    
-    // Calculate savings
-    const weeklyImpact = getPersonalizedWeightImpact(calorieSavings * 7, userProfile);
-    const monthlyImpact = getPersonalizedWeightImpact(calorieSavings * 30, userProfile);
-    
-    const impactType = calorieSavings > 0 ? 'loss' : 'gain';
-    const impactClass = calorieSavings > 0 ? 'positive-highlight' : 'negative-highlight';
-    const savingsSign = calorieSavings > 0 ? '-' : '+';
-    
-    return `
-        <div class="timeline-section" style="margin-top: 20px;">
-            <h4 style="color: #333; margin-bottom: 15px; text-align: center;">Weight Impact Comparison</h4>
-            <p style="text-align: center; margin-bottom: 15px; color: #666; font-size: 0.9rem;">
-                Daily consumption impact comparison
-                ${userProfile.weight ? ' (personalized for your profile)' : ''}
-            </p>
-            
-            <!-- Original Food Impact -->
-            <div style="margin-bottom: 20px;">
-                <h5 style="color: #333; margin-bottom: 10px; text-align: center; font-size: 1rem;">
-                    Original: ${currentFood.description}
-                </h5>
-                <div class="timeline-grid">
-                    <div class="timeline-item">
-                        <div class="timeline-period">1 week daily</div>
-                        <div class="timeline-weight negative-highlight">
-                            +${originalWeeklyWeight.toFixed(1)}kg
-                        </div>
-                    </div>
-                    <div class="timeline-item">
-                        <div class="timeline-period">1 month daily</div>
-                        <div class="timeline-weight negative-highlight">
-                            +${originalMonthlyWeight.toFixed(1)}kg
-                        </div>
-                    </div>
-                    <div class="timeline-item">
-                        <div class="timeline-period">Calories</div>
-                        <div class="timeline-weight" style="color: #666;">
-                            ${originalCalories} cal
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Alternative Food Impact -->
-            <div style="margin-bottom: 20px;">
-                <h5 style="color: #333; margin-bottom: 10px; text-align: center; font-size: 1rem;">
-                    Alternative: ${alternative.description}
-                </h5>
-                <div class="timeline-grid">
-                    <div class="timeline-item">
-                        <div class="timeline-period">1 week daily</div>
-                        <div class="timeline-weight negative-highlight">
-                            +${altWeeklyWeight.toFixed(1)}kg
-                        </div>
-                    </div>
-                    <div class="timeline-item">
-                        <div class="timeline-period">1 month daily</div>
-                        <div class="timeline-weight negative-highlight">
-                            +${altMonthlyWeight.toFixed(1)}kg
-                        </div>
-                    </div>
-                    <div class="timeline-item">
-                        <div class="timeline-period">Calories</div>
-                        <div class="timeline-weight" style="color: #666;">
-                            ${calories} cal
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            ${calorieSavings !== 0 ? `
-                         <!-- Savings Summary -->
-             <div style="background: #f8f9fa; border-radius: 10px; padding: 15px; border-left: 4px solid ${calorieSavings > 0 ? '#28a745' : '#dc3545'};">
-                 <h5 style="color: #333; margin-bottom: 10px; text-align: center; font-size: 1rem;">
-                     Your Savings by Switching
-                 </h5>
-                <div class="timeline-grid">
-                    <div class="timeline-item">
-                        <div class="timeline-period">1 week daily</div>
-                        <div class="timeline-weight ${impactClass}">
-                            ${savingsSign}${Math.abs(weeklyImpact).toFixed(1)}kg
-                        </div>
-                    </div>
-                    <div class="timeline-item">
-                        <div class="timeline-period">1 month daily</div>
-                        <div class="timeline-weight ${impactClass}">
-                            ${savingsSign}${Math.abs(monthlyImpact).toFixed(1)}kg
-                        </div>
-                    </div>
-                    <div class="timeline-item">
-                        <div class="timeline-period">Calorie savings</div>
-                        <div class="timeline-weight ${impactClass}">
-                            ${savingsSign}${Math.abs(calorieSavings)} cal
-                        </div>
-                    </div>
-                </div>
-            </div>
-            ` : ''}
-        </div>
-    `;
-}
-
-function showLoading(show) {
-    loading.style.display = show ? 'block' : 'none';
-}
-
-function showError(message) {
-    error.textContent = message;
-    error.style.display = 'block';
-    setTimeout(() => {
-        error.style.display = 'none';
-    }, 5000);
-}
-
-function hideError() {
-    error.style.display = 'none';
-}
-
-// BMI and Profile Functions
+// Keep existing BMI and weight calculation functions
 function calculateBMI() {
+    if (!weightInput || !heightInput || !bmiDisplay) return;
+    
     const weight = parseFloat(weightInput.value);
     const height = parseFloat(heightInput.value);
     
@@ -760,14 +565,17 @@ function calculateBMI() {
         const category = getBMICategory(bmi);
         const recommendation = getBMIRecommendation(category);
         
-        bmiDisplay.innerHTML = `
-            <div class="bmi-value">BMI: ${bmi.toFixed(1)}</div>
-            <div class="bmi-category ${category.toLowerCase()}">${category}</div>
-            <div class="bmi-recommendation">${recommendation}</div>
-        `;
-        bmiDisplay.style.display = 'block';
+        if (bmiDisplay) {
+            bmiDisplay.innerHTML = `
+                <div class="bmi-value">BMI: ${bmi.toFixed(1)}</div>
+                <div class="bmi-category ${category.toLowerCase()}">${category}</div>
+                <div class="bmi-recommendation">${recommendation}</div>
+            `;
+        }
     } else {
-        bmiDisplay.style.display = 'none';
+        if (bmiDisplay) {
+            bmiDisplay.innerHTML = '';
+        }
     }
 }
 
@@ -780,30 +588,29 @@ function getBMICategory(bmi) {
 
 function getBMIRecommendation(category) {
     const recommendations = {
-        'Underweight': 'Consider gaining healthy weight through balanced nutrition',
-        'Normal': 'Great! Maintain your healthy weight with balanced eating',
-        'Overweight': 'Consider healthier food choices to reach optimal weight',
-        'Obese': 'Focus on healthier alternatives to support weight management'
+        'Underweight': 'Consider increasing caloric intake with nutrient-dense foods.',
+        'Normal': 'Maintain your healthy weight with balanced nutrition.',
+        'Overweight': 'Consider reducing caloric intake and increasing physical activity.',
+        'Obese': 'Consult healthcare provider for personalized weight management plan.'
     };
     return recommendations[category] || '';
 }
 
 function getUserProfile() {
     return {
-        weight: parseFloat(weightInput.value) || null,
-        height: parseFloat(heightInput.value) || null,
-        age: parseInt(ageInput.value) || null,
-        gender: genderSelect.value || null,
-        activity: activitySelect.value || 'moderate'
+        weight: weightInput && weightInput.value ? parseFloat(weightInput.value) : null,
+        height: heightInput && heightInput.value ? parseFloat(heightInput.value) : null,
+        age: ageInput && ageInput.value ? parseInt(ageInput.value) : null,
+        gender: genderSelect && genderSelect.value ? genderSelect.value : null,
+        activity: activitySelect && activitySelect.value ? activitySelect.value : null
     };
 }
 
 function calculateDailyCalories(profile) {
     if (!profile.weight || !profile.height || !profile.age || !profile.gender) {
-        return null;
+        return 2000;
     }
     
-    // Mifflin-St Jeor Equation
     let bmr;
     if (profile.gender === 'male') {
         bmr = 10 * profile.weight + 6.25 * profile.height - 5 * profile.age + 5;
@@ -811,7 +618,6 @@ function calculateDailyCalories(profile) {
         bmr = 10 * profile.weight + 6.25 * profile.height - 5 * profile.age - 161;
     }
     
-    // Activity multipliers
     const activityMultipliers = {
         'sedentary': 1.2,
         'light': 1.375,
@@ -820,26 +626,182 @@ function calculateDailyCalories(profile) {
         'very_active': 1.9
     };
     
-    return bmr * (activityMultipliers[profile.activity] || 1.55);
+    const multiplier = activityMultipliers[profile.activity] || 1.55;
+    return Math.round(bmr * multiplier);
 }
 
-function getPersonalizedWeightImpact(calorieSavings, userProfile) {
-    if (!userProfile.weight) {
-        // Use generic calculation
-        return calorieSavings / 7700; // 7700 calories = 1 kg
+function getPersonalizedWeightImpact(calories, userProfile) {
+    const caloriesPerKg = 7700;
+    let weightChange = calories / caloriesPerKg;
+    
+    if (userProfile.weight && userProfile.height && userProfile.age) {
+        const dailyNeeds = calculateDailyCalories(userProfile);
+        const metabolicFactor = dailyNeeds / 2000;
+        weightChange = weightChange / metabolicFactor;
     }
     
-    // More personalized calculation based on user's daily calorie needs
-    const dailyCalories = calculateDailyCalories(userProfile);
-    if (dailyCalories) {
-        // Consider user's daily calorie needs for more accurate estimation
-        const percentageOfDailyCalories = calorieSavings / dailyCalories;
-        const baseWeightChange = calorieSavings / 7700;
+    return Math.abs(weightChange);
+}
+
+// Remaining comparison and utility functions...
+function showComparison() {
+    if (!currentFood || !selectedAlternative) return;
+
+    const originalCal = getCalories(currentFood);
+    const altCal = getCalories(selectedAlternative);
+    const calorieSavings = originalCal - altCal;
+
+    const userProfile = getUserProfile();
+    
+    if (comparisonSection) {
+        comparisonSection.innerHTML = `
+            <h2>🤖 AI-Powered Food Comparison</h2>
+            
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Nutrient</th>
+                        <th class="original-col">${currentFood.product_name || currentFood.brands || 'Original Product'}</th>
+                        <th class="alternative-col">${selectedAlternative.product_name || selectedAlternative.brands || 'Alternative Product'}</th>
+                        <th>Difference</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Calories</td>
+                        <td class="original-col">${originalCal}</td>
+                        <td class="alternative-col">${altCal}</td>
+                        <td class="${calorieSavings > 0 ? 'positive-highlight' : 'negative-highlight'}">
+                            ${calorieSavings > 0 ? '-' : '+'}${Math.abs(calorieSavings)} cal
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            ${getDetailedWeightComparison(currentFood, selectedAlternative, userProfile)}
+        `;
         
-        // Adjust based on user's current weight (larger people lose weight faster initially)
-        const weightFactor = userProfile.weight / 70; // 70kg as baseline
-        return baseWeightChange * weightFactor;
+        comparisonSection.style.display = 'block';
+    }
+}
+
+function getDetailedWeightComparison(originalFood, alternative, userProfile) {
+    const originalCal = getCalories(originalFood);
+    const altCal = getCalories(alternative);
+    
+    const periods = ['1 week', '1 month', '3 months', '6 months', '1 year'];
+    const multipliers = [7, 30, 90, 180, 365];
+    
+    let html = `
+        <div class="weight-comparison-container">
+            <h3>Weight Impact Comparison (Daily Consumption)</h3>
+            <p style="text-align: center; margin-bottom: 15px; color: #666;">
+                🤖 AI-calculated weight impact analysis
+            </p>
+            <table class="weight-comparison-table">
+                <thead>
+                    <tr>
+                        <th>Time Period</th>
+                        <th class="original-col">Original Food</th>
+                        <th class="alternative-col">Alternative Food</th>
+                        <th>Your Savings</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    let yearlyWeightSavings = 0;
+    
+    for (let i = 0; i < periods.length; i++) {
+        const period = periods[i];
+        const days = multipliers[i];
+        
+        const originalExcess = Math.max(0, originalCal - (2000 / days));
+        const altExcess = Math.max(0, altCal - (2000 / days));
+        
+        const originalWeight = getPersonalizedWeightImpact(originalExcess * days, userProfile);
+        const altWeight = getPersonalizedWeightImpact(altExcess * days, userProfile);
+        const weightSavings = originalWeight - altWeight;
+        
+        if (period === '1 year') {
+            yearlyWeightSavings = weightSavings;
+        }
+        
+        const savingsClass = weightSavings > 0.1 ? 'positive-highlight' : 
+                           weightSavings < -0.1 ? 'negative-highlight' : '';
+        const savingsSign = weightSavings > 0 ? '-' : weightSavings < 0 ? '+' : '';
+        
+        html += `
+            <tr>
+                <td><strong>${period} daily</strong></td>
+                <td class="original-col">${originalWeight > 0 ? '+' + originalWeight.toFixed(1) + 'kg' : 'No gain'}</td>
+                <td class="alternative-col">${altWeight > 0 ? '+' + altWeight.toFixed(1) + 'kg' : 'No gain'}</td>
+                <td class="${savingsClass}">
+                    ${Math.abs(weightSavings) > 0.1 ? savingsSign + Math.abs(weightSavings).toFixed(1) + 'kg' : 'Same'}
+                </td>
+            </tr>
+        `;
     }
     
-    return calorieSavings / 7700;
+    html += `
+                </tbody>
+            </table>
+            <div class="weight-summary">
+    `;
+    
+    if (yearlyWeightSavings > 1) {
+        if (comparisonSection) {
+            comparisonSection.innerHTML += `<p class="positive-highlight">🎉 Excellent choice! You could avoid gaining <strong>${yearlyWeightSavings.toFixed(1)}kg</strong> per year by choosing the AI-recommended alternative daily.</p>`;
+        }
+    } else if (yearlyWeightSavings > 0.1) {
+        if (comparisonSection) {
+            comparisonSection.innerHTML += `<p class="positive-highlight">👍 Smart choice! You could save <strong>${yearlyWeightSavings.toFixed(1)}kg</strong> per year with this LLM-suggested alternative.</p>`;
+        }
+    } else {
+        if (comparisonSection) {
+            comparisonSection.innerHTML += `<p>Both foods have similar weight impact when consumed daily.</p>`;
+        }
+    }
+    
+    html += `
+            </div>
+        </div>
+    `;
+    
+    return html;
+}
+
+function toggleIngredients(button) {
+    const ingredientsSection = button.closest('.action-buttons').nextElementSibling;
+    if (ingredientsSection && ingredientsSection.classList.contains('ingredients-section')) {
+        if (ingredientsSection.style.display === 'none') {
+            ingredientsSection.style.display = 'block';
+            button.textContent = 'Hide Ingredients';
+        } else {
+            ingredientsSection.style.display = 'none';
+            button.textContent = 'See Ingredients';
+        }
+    }
+}
+
+function showError(message) {
+    if (error) {
+        error.textContent = message;
+        error.style.display = 'block';
+        setTimeout(() => {
+            error.style.display = 'none';
+        }, 5000);
+    }
+}
+
+function hideError() {
+    if (error) {
+        error.style.display = 'none';
+    }
+}
+
+function showLoading(show) {
+    if (loading) {
+        loading.style.display = show ? 'block' : 'none';
+    }
 } 
