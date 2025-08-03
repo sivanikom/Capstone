@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MindfulBite - Food Choice Navigator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700&family=Bitcount+Prop+Single:wght@400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- Landing Page (shown by default) -->
+        <div id="landingPage" class="landing-page">
+            <div class="landing-content">
+                <h1 class="landing-title">MINDFULBITE</h1>
+                <div class="landing-description">
+                    <p class="main-description">
+                        Transform your eating habits with intelligent food choices that align with your health goals.
+                    </p>
+                    <p class="sub-description">
+                        MindfulBite helps you discover healthier alternatives to your favorite foods, 
+                        provides detailed nutritional analysis, and shows you the long-term impact of your 
+                        food choices on your weight and health. Make every bite count towards a healthier you.
+                    </p>
+                    <div class="features-grid">
+                        <div class="feature-item">
+                            <h3>Smart Food Analysis</h3>
+                            <p>Get detailed nutrition information for any food item</p>
+                        </div>
+                        <div class="feature-item">
+                            <h3>Healthier Alternatives</h3>
+                            <p>Discover better options that satisfy your cravings</p>
+                        </div>
+                        <div class="feature-item">
+                            <h3>Weight Impact Timeline</h3>
+                            <p>See how your food choices affect your long-term health</p>
+                        </div>
+                    </div>
+                </div>
+                <button id="getStartedBtn" class="get-started-btn">Let's Get Started</button>
+            </div>
+        </div>
+
+        <!-- Main Application (hidden by default) -->
+        <div id="mainApp" class="main-app" style="display: none;">
+            <!-- Header -->
+            <header class="header">
+                <h1>MINDFULBITE</h1>
+                <p>Find healthier food alternatives with real nutrition data</p>
+            </header>
+
+        <!-- User Profile Section -->
+        <section class="profile-section">
+            <h3>Your Profile (Optional - for personalized insights)</h3>
+            <div class="profile-grid">
+                <div class="profile-input">
+                    <label for="weight">Weight (kg)</label>
+                    <input type="number" id="weight" placeholder="70" step="0.1" min="30" max="300">
+                </div>
+                <div class="profile-input">
+                    <label for="height">Height (cm)</label>
+                    <input type="number" id="height" placeholder="170" step="1" min="100" max="250">
+                </div>
+                <div class="profile-input">
+                    <label for="age">Age</label>
+                    <input type="number" id="age" placeholder="25" step="1" min="18" max="100">
+                </div>
+                <div class="profile-input">
+                    <label for="gender">Gender</label>
+                    <select id="gender">
+                        <option value="">Select</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                    </select>
+                </div>
+                <div class="profile-input">
+                    <label for="activity">Activity Level</label>
+                    <select id="activity">
+                        <option value="sedentary">Sedentary</option>
+                        <option value="light">Light</option>
+                        <option value="moderate" selected>Moderate</option>
+                        <option value="active">Active</option>
+                        <option value="very_active">Very Active</option>
+                    </select>
+                </div>
+            </div>
+            <div id="bmiDisplay" class="bmi-display" style="display: none;"></div>
+        </section>
+
+        <!-- Search Section -->
+        <section class="search-section">
+            <div class="search-container">
+                <h2 class="craving-prompt">What are you in the mood for right now?</h2>
+                <div class="search-input-group">
+                    <input type="text" id="foodInput" placeholder="Search for a food (e.g., pizza, burger, chips)..." autocomplete="off">
+                    <button id="searchBtn">Find Alternatives</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Results Section -->
+        <section id="resultsSection" class="results-section" style="display: none;">
+            <!-- Original Food Display -->
+            <div id="originalFood" class="food-display">
+                <h2>Your Food</h2>
+                <div id="originalFoodCard" class="food-card"></div>
+            </div>
+
+            <!-- Alternatives Display -->
+            <div id="alternativesSection" class="alternatives-section" style="display: none;">
+                <h2>Healthier Alternatives</h2>
+                <div id="alternativeButtons" class="alternative-buttons"></div>
+            </div>
+
+            <!-- Selected Alternative Details -->
+            <div id="alternativeDetails" class="alternative-details" style="display: none;"></div>
+
+            <!-- Comparison Section -->
+            <div id="comparisonSection" class="comparison-section" style="display: none;"></div>
+        </section>
+
+        <!-- Loading Spinner -->
+        <div id="loading" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>Searching for alternatives...</p>
+        </div>
+
+        <!-- Error Display -->
+        <div id="error" class="error" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html> 
