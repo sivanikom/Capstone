@@ -1,10 +1,30 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, make_response, session
 import openai
 from openai import OpenAI
 import json
 import logging
 
+# Import database functions for user authentication (NEW)
+try:
+    from database import (
+        init_database, create_user, authenticate_user, create_session, 
+        get_user_from_session, delete_session, get_user_profile, update_user_profile
+    )
+    DB_AVAILABLE = True
+except ImportError:
+    print("Warning: Database module not available")
+    DB_AVAILABLE = False
+
 app = Flask(__name__)
+app.secret_key = 'mindfulbite-secret-key-change-in-production'  # NEW
+
+# Initialize database on startup (NEW)
+if DB_AVAILABLE:
+    try:
+        init_database()
+        print("✅ Database initialized successfully")
+    except Exception as e:
+        print(f"❌ Database initialization failed: {e}")
 
 # OpenRouter Configuration
 client = OpenAI(
@@ -15,6 +35,257 @@ client = OpenAI(
 # Configure logging for debugging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Helper function to get current user (NEW)
+def get_current_user():
+    """Get current user from session token"""
+    if not DB_AVAILABLE:
+        return None
+    session_token = request.cookies.get('session_token')
+    if session_token:
+        return get_user_from_session(session_token)
+    return None
+
+# NEW AUTHENTICATION ROUTES - Added without modifying existing routes
+
+@app.route('/login')
+def login_page():
+    """Serve the login page"""
+    return render_template('login.html')
+
+@app.route('/api/register', methods=['POST'])
+def register():
+    """Handle user registration"""
+    if not DB_AVAILABLE:
+        return jsonify({"success": False, "error": "Database not available"}), 500
+    
+    try:
+        data = request.get_json()
+        username = data.get('username', '').strip()
+        email = data.get('email', '').strip()
+        password = data.get('password', '')
+        
+        # Basic validation
+        if not username or not email or not password:
+            return jsonify({"success": False, "error": "All fields are required"}), 400
+        
+        if len(username) < 3:
+            return jsonify({"success": False, "error": "Username must be at least 3 characters"}), 400
+        
+        if len(password) < 6:
+            return jsonify({"success": False, "error": "Password must be at least 6 characters"}), 400
+        
+        if '@' not in email:
+            return jsonify({"success": False, "error": "Please enter a valid email"}), 400
+        
+        # Create user
+        result = create_user(username, email, password)
+        
+        if result['success']:
+            logger.info(f"✅ New user registered: {username}")
+            return jsonify({"success": True, "message": "Account created successfully! Please login."})
+        else:
+            return jsonify({"success": False, "error": result['error']}), 400
+        
+    except Exception as e:
+        logger.error(f"❌ Registration error: {e}")
+        return jsonify({"success": False, "error": "Registration failed"}), 500
+
+@app.route('/api/login', methods=['POST'])
+def login():
+    """Handle user login"""
+    if not DB_AVAILABLE:
+        return jsonify({"success": False, "error": "Database not available"}), 500
+    
+    try:
+        data = request.get_json()
+        username = data.get('username', '').strip()
+        password = data.get('password', '')
+        
+        if not username or not password:
+            return jsonify({"success": False, "error": "Username and password are required"}), 400
+        
+        # Authenticate user
+        auth_result = authenticate_user(username, password)
+        
+        if auth_result['success']:
+            user = auth_result['user']
+            
+            # Create session
+            session_token = create_session(user['id'])
+            
+            if session_token:
+                # Create response with session cookie
+                response = make_response(jsonify({
+                    "success": True, 
+                    "message": "Login successful",
+                    "user": user
+                }))
+                
+                # Set secure session cookie (7 days)
+                response.set_cookie(
+                    'session_token', 
+                    session_token,
+                    max_age=7*24*60*60,  # 7 days
+                    httponly=True,
+                    secure=False,  # Set to True in production with HTTPS
+                    samesite='Lax'
+                )
+                
+                logger.info(f"✅ User logged in: {user['username']}")
+                return response
+            else:
+                return jsonify({"success": False, "error": "Failed to create session"}), 500
+        else:
+            return jsonify({"success": False, "error": auth_result['error']}), 401
+        
+    except Exception as e:
+        logger.error(f"❌ Login error: {e}")
+        return jsonify({"success": False, "error": "Login failed"}), 500
+
+@app.route('/api/logout', methods=['POST'])
+def logout():
+    """Handle user logout"""
+    if not DB_AVAILABLE:
+        return jsonify({"success": False, "error": "Database not available"}), 500
+    
+    try:
+        session_token = request.cookies.get('session_token')
+        
+        if session_token:
+            delete_session(session_token)
+        
+        response = make_response(jsonify({"success": True, "message": "Logged out successfully"}))
+        response.set_cookie('session_token', '', expires=0)
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"❌ Logout error: {e}")
+        return jsonify({"success": False, "error": "Logout failed"}), 500
+
+@app.route('/api/current_user', methods=['GET'])
+def current_user():
+    """Get current user info"""
+    if not DB_AVAILABLE:
+        return jsonify({"success": False, "user": None})
+    
+    user = get_current_user()
+    if user:
+        return jsonify({"success": True, "user": user})
+    else:
+        return jsonify({"success": False, "user": None})
+
+@app.route('/api/profile', methods=['GET'])
+def get_profile():
+    """Get user profile data"""
+    if not DB_AVAILABLE:
+        return jsonify({"success": False, "error": "Database not available"}), 500
+    
+    user = get_current_user()
+    if not user:
+        return jsonify({"success": False, "error": "Authentication required"}), 401
+    
+    try:
+        profile = get_user_profile(user['id'])
+        
+        if profile:
+            # Remove sensitive fields
+            safe_profile = {
+                'weight': profile.get('weight'),
+                'height': profile.get('height'),
+                'age': profile.get('age'),
+                'gender': profile.get('gender'),
+                'activity_level': profile.get('activity_level'),
+                'bmi': profile.get('bmi'),
+                'daily_calories': profile.get('daily_calories')
+            }
+            return jsonify({"success": True, "profile": safe_profile})
+        else:
+            return jsonify({"success": True, "profile": {}})
+        
+    except Exception as e:
+        logger.error(f"❌ Profile fetch error: {e}")
+        return jsonify({"success": False, "error": "Failed to fetch profile"}), 500
+
+@app.route('/api/profile', methods=['POST'])
+def update_profile():
+    """Update user profile data"""
+    if not DB_AVAILABLE:
+        return jsonify({"success": False, "error": "Database not available"}), 500
+    
+    user = get_current_user()
+    if not user:
+        return jsonify({"success": False, "error": "Authentication required"}), 401
+    
+    try:
+        data = request.get_json()
+        
+        weight = data.get('weight')
+        height = data.get('height')
+        age = data.get('age')
+        gender = data.get('gender')
+        activity_level = data.get('activity_level')
+        
+        # Convert string numbers to float/int
+        if weight:
+            weight = float(weight)
+        if height:
+            height = float(height)
+        if age:
+            age = int(age)
+        
+        # Validate inputs
+        if weight and (weight < 20 or weight > 500):
+            return jsonify({"success": False, "error": "Weight must be between 20-500 kg"}), 400
+        
+        if height and (height < 100 or height > 250):
+            return jsonify({"success": False, "error": "Height must be between 100-250 cm"}), 400
+        
+        if age and (age < 10 or age > 120):
+            return jsonify({"success": False, "error": "Age must be between 10-120 years"}), 400
+        
+        if gender and gender not in ['male', 'female', 'other']:
+            return jsonify({"success": False, "error": "Invalid gender selection"}), 400
+        
+        if activity_level and activity_level not in ['sedentary', 'light', 'moderate', 'active', 'very_active']:
+            return jsonify({"success": False, "error": "Invalid activity level"}), 400
+        
+        # Update profile
+        success = update_user_profile(
+            user['id'], 
+            weight=weight, 
+            height=height, 
+            age=age, 
+            gender=gender, 
+            activity_level=activity_level
+        )
+        
+        if success:
+            # Get updated profile
+            updated_profile = get_user_profile(user['id'])
+            safe_profile = {
+                'weight': updated_profile.get('weight'),
+                'height': updated_profile.get('height'),
+                'age': updated_profile.get('age'),
+                'gender': updated_profile.get('gender'),
+                'activity_level': updated_profile.get('activity_level'),
+                'bmi': updated_profile.get('bmi'),
+                'daily_calories': updated_profile.get('daily_calories')
+            }
+            
+            logger.info(f"✅ Profile updated for user: {user['username']}")
+            return jsonify({"success": True, "profile": safe_profile})
+        else:
+            return jsonify({"success": False, "error": "Failed to update profile"}), 500
+        
+    except ValueError as e:
+        return jsonify({"success": False, "error": "Invalid number format"}), 400
+    except Exception as e:
+        logger.error(f"❌ Profile update error: {e}")
+        return jsonify({"success": False, "error": "Failed to update profile"}), 500
+
+# EXISTING ROUTES UNCHANGED - keeping everything as is
 
 @app.route('/')
 def index():

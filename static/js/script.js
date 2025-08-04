@@ -4,6 +4,7 @@
 let currentFood = null;
 let currentAlternatives = [];
 let selectedAlternative = null;
+let currentUser = null; // NEW: Track current user
 
 // DOM elements with null checks
 const landingPage = document.getElementById('landingPage');
@@ -27,6 +28,17 @@ const ageInput = document.getElementById('age');
 const genderSelect = document.getElementById('gender');
 const activitySelect = document.getElementById('activity');
 const bmiDisplay = document.getElementById('bmiDisplay');
+
+// NEW: Authentication elements
+const userInfo = document.getElementById('userInfo');
+const loginPrompt = document.getElementById('loginPrompt');
+const userWelcome = document.getElementById('userWelcome');
+const logoutBtn = document.getElementById('logoutBtn');
+const headerUserInfo = document.getElementById('headerUserInfo');
+const headerUserName = document.getElementById('headerUserName');
+const headerLogoutBtn = document.getElementById('headerLogoutBtn');
+const saveProfileBtn = document.getElementById('saveProfileBtn');
+const profileStatus = document.getElementById('profileStatus');
 
 // Debug: Log which elements are missing
 console.log('🔍 DOM Elements Check:');
@@ -805,3 +817,223 @@ function showLoading(show) {
         loading.style.display = show ? 'block' : 'none';
     }
 } 
+
+// NEW: Authentication and Profile Management Functions
+
+// Check authentication status on page load
+async function checkAuthStatus() {
+    try {
+        const response = await fetch('/api/current_user');
+        const data = await response.json();
+        
+        if (data.success && data.user) {
+            currentUser = data.user;
+            updateUserInterface();
+            loadUserProfile();
+        } else {
+            updateUserInterface();
+        }
+    } catch (error) {
+        console.log('No active session');
+        updateUserInterface();
+    }
+}
+
+// Update UI based on authentication status
+function updateUserInterface() {
+    if (currentUser) {
+        // User is logged in
+        if (userInfo && loginPrompt) {
+            userInfo.style.display = 'block';
+            loginPrompt.style.display = 'none';
+            if (userWelcome) {
+                userWelcome.textContent = `Welcome, ${currentUser.username}!`;
+            }
+        }
+        
+        if (headerUserInfo && headerUserName) {
+            headerUserInfo.style.display = 'flex';
+            headerUserName.textContent = currentUser.username;
+        }
+    } else {
+        // User is not logged in
+        if (userInfo && loginPrompt) {
+            userInfo.style.display = 'none';
+            loginPrompt.style.display = 'block';
+        }
+        
+        if (headerUserInfo) {
+            headerUserInfo.style.display = 'none';
+        }
+    }
+}
+
+// Logout function
+async function logout() {
+    try {
+        const response = await fetch('/api/logout', {
+            method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            currentUser = null;
+            updateUserInterface();
+            showProfileStatus('Logged out successfully', 'success');
+            // Clear profile data from form
+            if (weightInput) weightInput.value = '';
+            if (heightInput) heightInput.value = '';
+            if (ageInput) ageInput.value = '';
+            if (genderSelect) genderSelect.value = '';
+            if (activitySelect) activitySelect.value = '';
+            if (bmiDisplay) bmiDisplay.style.display = 'none';
+        } else {
+            showProfileStatus('Logout failed', 'error');
+        }
+    } catch (error) {
+        console.error('Logout error:', error);
+        showProfileStatus('Logout failed', 'error');
+    }
+}
+
+// Load user profile data
+async function loadUserProfile() {
+    if (!currentUser) return;
+    
+    try {
+        const response = await fetch('/api/profile');
+        const data = await response.json();
+        
+        if (data.success && data.profile) {
+            populateProfileForm(data.profile);
+            if (data.profile.weight && data.profile.height) {
+                displayBMI(data.profile);
+            }
+        }
+    } catch (error) {
+        console.error('Profile load error:', error);
+    }
+}
+
+// Populate profile form with data from database
+function populateProfileForm(profile) {
+    if (weightInput && profile.weight) weightInput.value = profile.weight;
+    if (heightInput && profile.height) heightInput.value = profile.height;
+    if (ageInput && profile.age) ageInput.value = profile.age;
+    if (genderSelect && profile.gender) genderSelect.value = profile.gender;
+    if (activitySelect && profile.activity_level) activitySelect.value = profile.activity_level;
+}
+
+// Save profile to database
+async function saveProfile() {
+    if (!currentUser) {
+        showProfileStatus('Please login to save your profile', 'error');
+        return;
+    }
+    
+    const profileData = {
+        weight: weightInput?.value ? parseFloat(weightInput.value) : null,
+        height: heightInput?.value ? parseFloat(heightInput.value) : null,
+        age: ageInput?.value ? parseInt(ageInput.value) : null,
+        gender: genderSelect?.value || null,
+        activity_level: activitySelect?.value || null
+    };
+    
+    // Filter out empty values
+    const cleanedProfile = Object.fromEntries(
+        Object.entries(profileData).filter(([key, value]) => value !== null && value !== '')
+    );
+    
+    if (Object.keys(cleanedProfile).length === 0) {
+        showProfileStatus('Please fill in at least one profile field', 'error');
+        return;
+    }
+    
+    try {
+        if (saveProfileBtn) {
+            saveProfileBtn.disabled = true;
+            saveProfileBtn.textContent = 'Saving...';
+        }
+        
+        const response = await fetch('/api/profile', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(cleanedProfile)
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showProfileStatus('Profile saved successfully!', 'success');
+            if (data.profile.weight && data.profile.height) {
+                displayBMI(data.profile);
+            }
+        } else {
+            showProfileStatus(data.error || 'Failed to save profile', 'error');
+        }
+    } catch (error) {
+        console.error('Profile save error:', error);
+        showProfileStatus('Failed to save profile', 'error');
+    } finally {
+        if (saveProfileBtn) {
+            saveProfileBtn.disabled = false;
+            saveProfileBtn.textContent = 'Save Profile';
+        }
+    }
+}
+
+// Display BMI information with database data
+function displayBMI(profile) {
+    if (bmiDisplay && profile.bmi) {
+        bmiDisplay.style.display = 'block';
+        
+        const category = getBMICategory(profile.bmi);
+        const recommendation = getBMIRecommendation(profile.bmi);
+        
+        bmiDisplay.innerHTML = `
+            <div class="bmi-info">
+                <span class="bmi-label">BMI:</span>
+                <span class="bmi-value" style="color: ${category.color}">${profile.bmi}</span>
+                <span class="bmi-category" style="color: ${category.color}">(${category.name})</span>
+            </div>
+            <div class="bmi-recommendation">${recommendation}</div>
+            <div class="daily-calories">Daily Calorie Needs: ${profile.daily_calories || 'Not calculated'} cal</div>
+        `;
+    }
+}
+
+// Show profile status message
+function showProfileStatus(message, type) {
+    if (profileStatus) {
+        profileStatus.textContent = message;
+        profileStatus.className = `profile-status ${type}`;
+        profileStatus.style.display = 'block';
+        
+        setTimeout(() => {
+            profileStatus.style.display = 'none';
+        }, 5000);
+    }
+}
+
+// Add event listeners for authentication
+if (logoutBtn) {
+    logoutBtn.addEventListener('click', logout);
+}
+
+if (headerLogoutBtn) {
+    headerLogoutBtn.addEventListener('click', logout);
+}
+
+if (saveProfileBtn) {
+    saveProfileBtn.addEventListener('click', saveProfile);
+}
+
+// Initialize authentication on page load
+document.addEventListener('DOMContentLoaded', function() {
+    checkAuthStatus();
+});
+
+console.log('✅ MindfulBite with authentication initialized'); 

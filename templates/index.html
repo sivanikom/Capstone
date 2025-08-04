@@ -14,6 +14,18 @@
         <!-- Landing Page (shown by default) -->
         <div id="landingPage" class="landing-page">
             <div class="landing-content">
+                <!-- User Login Section (NEW) -->
+                <div class="user-section">
+                    <div id="userInfo" class="user-info" style="display: none;">
+                        <span id="userWelcome">Welcome back!</span>
+                        <button id="logoutBtn" class="logout-btn">Logout</button>
+                    </div>
+                    <div id="loginPrompt" class="login-prompt">
+                        <a href="/login" class="login-link">Login / Sign Up</a>
+                        <span class="login-hint">for personalized insights</span>
+                    </div>
+                </div>
+
                 <h1 class="landing-title">MINDFULBITE</h1>
                 <div class="landing-description">
                     <p class="main-description">
@@ -49,6 +61,11 @@
             <header class="header">
                 <h1>MINDFULBITE</h1>
                 <p>Find healthier food alternatives with real nutrition data</p>
+                <!-- User info in header (NEW) -->
+                <div id="headerUserInfo" class="header-user-info" style="display: none;">
+                    <span id="headerUserName">User</span>
+                    <button id="headerLogoutBtn" class="logout-btn">Logout</button>
+                </div>
             </header>
 
         <!-- User Profile Section -->
@@ -85,8 +102,15 @@
                         <option value="very_active">Very Active</option>
                     </select>
                 </div>
+                <!-- NEW: Save Profile Button - moved to align with other fields -->
+                <div class="profile-input">
+                    <label>&nbsp;</label> <!-- Empty label to maintain alignment -->
+                    <button id="saveProfileBtn" class="save-profile-btn">Save Profile</button>
+                </div>
             </div>
             <div id="bmiDisplay" class="bmi-display" style="display: none;"></div>
+            <!-- Profile Save Status (NEW) -->
+            <div id="profileStatus" class="profile-status" style="display: none;"></div>
         </section>
 
         <!-- Search Section -->
