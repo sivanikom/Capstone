@@ -773,7 +773,7 @@ h2:contains("AI-Powered") {
 }
 
 .loading::after {
-    content: "🤖 AI is analyzing your food...";
+    content: "AI is analyzing your food...";
     display: block;
     margin-top: 10px;
     font-style: italic;

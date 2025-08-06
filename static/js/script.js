@@ -1,5 +1,3 @@
-// MindfulBite - Clean JavaScript for Food Search and Alternatives
-
 // Global variables
 let currentFood = null;
 let currentAlternatives = [];
@@ -21,7 +19,7 @@ const alternativeButtons = document.getElementById('alternativeButtons');
 const alternativeDetails = document.getElementById('alternativeDetails');
 const comparisonSection = document.getElementById('comparisonSection');
 
-// Profile elements (may not exist in all views)
+// Profile elements 
 const weightInput = document.getElementById('weight');
 const heightInput = document.getElementById('height');
 const ageInput = document.getElementById('age');
@@ -29,7 +27,7 @@ const genderSelect = document.getElementById('gender');
 const activitySelect = document.getElementById('activity');
 const bmiDisplay = document.getElementById('bmiDisplay');
 
-// NEW: Authentication elements
+//Authentication elements
 const userInfo = document.getElementById('userInfo');
 const loginPrompt = document.getElementById('loginPrompt');
 const userWelcome = document.getElementById('userWelcome');
@@ -41,7 +39,7 @@ const saveProfileBtn = document.getElementById('saveProfileBtn');
 const profileStatus = document.getElementById('profileStatus');
 
 // Debug: Log which elements are missing
-console.log('🔍 DOM Elements Check:');
+        console.log('DOM Elements Check:');
 const requiredElements = {
     landingPage, mainApp, getStartedBtn, foodInput, searchBtn, 
     loading, error, resultsSection, originalFoodCard, 
@@ -50,9 +48,9 @@ const requiredElements = {
 
 for (const [name, element] of Object.entries(requiredElements)) {
     if (!element) {
-        console.warn(`❌ Missing required element: ${name}`);
+                    console.warn(`Missing required element: ${name}`);
     } else {
-        console.log(`✅ Found element: ${name}`);
+        console.log(`Found element: ${name}`);
     }
 }
 
@@ -62,9 +60,9 @@ const profileElements = {
 
 for (const [name, element] of Object.entries(profileElements)) {
     if (!element) {
-        console.warn(`⚠️ Missing profile element: ${name}`);
+                    console.warn(`Missing profile element: ${name}`);
     } else {
-        console.log(`✅ Found profile element: ${name}`);
+        console.log(`Found profile element: ${name}`);
     }
 }
 
@@ -72,13 +70,13 @@ for (const [name, element] of Object.entries(profileElements)) {
 if (getStartedBtn) {
     getStartedBtn.addEventListener('click', showMainApp);
 } else {
-    console.error('❌ Cannot attach event to getStartedBtn - element not found');
+            console.error('Cannot attach event to getStartedBtn - element not found');
 }
 
 if (searchBtn) {
     searchBtn.addEventListener('click', searchFood);
 } else {
-    console.error('❌ Cannot attach event to searchBtn - element not found');
+            console.error('Cannot attach event to searchBtn - element not found');
 }
 
 // Real-time BMI calculation (only if elements exist)
@@ -87,7 +85,7 @@ if (weightInput && heightInput) {
         input.addEventListener('input', calculateBMI);
     });
 } else {
-    console.warn('⚠️ BMI calculation not available - profile elements missing');
+            console.warn('BMI calculation not available - profile elements missing');
 }
 
 // Event delegation for dynamic content
@@ -104,7 +102,7 @@ document.addEventListener('click', (e) => {
 
 function showMainApp() {
     if (!landingPage || !mainApp) {
-        console.error('❌ Cannot transition - landing page or main app elements missing');
+        console.error('Cannot transition - landing page or main app elements missing');
         return;
     }
     landingPage.style.display = 'none';
@@ -114,7 +112,7 @@ function showMainApp() {
 // Main search function powered by LLM
 async function searchFood() {
     if (!foodInput) {
-        console.error('❌ Cannot search - food input element missing');
+        console.error('Cannot search - food input element missing');
         showError('Search functionality not available');
         return;
     }
@@ -150,9 +148,9 @@ async function searchFood() {
         displayOriginalFood(currentFood);
 
         // Search for alternatives using dedicated LLM endpoint
-        console.log('🔧 About to call findAlternativesLLM with:', currentFood);
+        console.log('About to call findAlternativesLLM with:', currentFood);
         await findAlternativesLLM(currentFood);
-        console.log('🔧 findAlternativesLLM completed');
+        console.log('findAlternativesLLM completed');
 
         // Show results
         if (resultsSection) {
@@ -169,7 +167,7 @@ async function searchFood() {
 
 // LLM-powered alternative finding
 async function findAlternativesLLM(food) {
-    console.log('🤖 Finding alternatives using LLM for:', food.product_name);
+            console.log('Finding alternatives using LLM for:', food.product_name);
     
     try {
         const calories = getCalories(food);
@@ -182,20 +180,20 @@ async function findAlternativesLLM(food) {
         }
         
         const data = await response.json();
-        console.log('🎉 LLM alternatives response:', data);
+        console.log('LLM alternatives response:', data);
         
         if (data.error) {
             throw new Error(data.error);
         }
         
         if (data.alternatives && data.alternatives.length > 0) {
-            console.log('🔧 Found', data.alternatives.length, 'alternatives, setting currentAlternatives');
+            console.log('Found', data.alternatives.length, 'alternatives, setting currentAlternatives');
             currentAlternatives = data.alternatives;
-            console.log('🔧 About to call displayAlternativeButtons');
+            console.log('About to call displayAlternativeButtons');
             displayAlternativeButtons(data.alternatives);
-            console.log('🔧 displayAlternativeButtons call completed');
+            console.log('displayAlternativeButtons call completed');
         } else {
-            console.log('🔧 No alternatives found or empty array');
+            console.log('No alternatives found or empty array');
             // Show no alternatives message
             if (alternativeButtons) {
                 alternativeButtons.innerHTML = `
@@ -218,7 +216,7 @@ async function findAlternativesLLM(food) {
         if (alternativeButtons) {
             alternativeButtons.innerHTML = `
                 <div style="text-align: center; padding: 20px; background: #f8d7da; border-radius: 8px; margin: 10px 0;">
-                    <h4 style="margin: 0 0 10px 0;">⚠️ Alternative search failed</h4>
+                    <h4 style="margin: 0 0 10px 0;">Alternative search failed</h4>
                     <p style="margin: 0; color: #666;">Error: ${err.message}</p>
                 </div>
             `;
@@ -357,8 +355,8 @@ function displayOriginalFood(food) {
 
 // Display LLM-generated alternatives
 function displayAlternativeButtons(alternatives) {
-    console.log('🔧 displayAlternativeButtons called with:', alternatives.length, 'alternatives');
-    console.log('🔧 alternativeButtons element:', alternativeButtons);
+            console.log('displayAlternativeButtons called with:', alternatives.length, 'alternatives');
+    console.log('alternativeButtons element:', alternativeButtons);
     
     if (alternatives.length === 0) {
         if (alternativeButtons) {
@@ -378,7 +376,7 @@ function displayAlternativeButtons(alternatives) {
     }
     
     if (alternativeButtons) {
-        console.log('🔧 Rendering', alternatives.length, 'alternatives to DOM');
+        console.log('Rendering', alternatives.length, 'alternatives to DOM');
         
         alternativeButtons.innerHTML = '<h3>AI-Recommended Healthier Alternatives</h3>' + 
             alternatives.map((alternative, index) => {
@@ -406,13 +404,13 @@ function displayAlternativeButtons(alternatives) {
         // Show the parent alternatives section
         if (alternativesSection) {
             alternativesSection.style.display = 'block';
-            console.log('🔧 alternativesSection shown');
+            console.log('alternativesSection shown');
         }
         
-        console.log('🔧 alternatives rendered, display set to block');
-        console.log('🔧 alternativeButtons innerHTML length:', alternativeButtons.innerHTML.length);
+        console.log('alternatives rendered, display set to block');
+        console.log('alternativeButtons innerHTML length:', alternativeButtons.innerHTML.length);
     } else {
-        console.error('❌ alternativeButtons element not found!');
+        console.error('alternativeButtons element not found!');
     }
 }
 
@@ -439,7 +437,7 @@ function showAlternativeDetails(index) {
             <h3>${selectedAlternative.product_name || selectedAlternative.brands || 'Unknown Product'}</h3>
             ${selectedAlternative.brands ? `<div class="product-brand">${selectedAlternative.brands}</div>` : ''}
             ${selectedAlternative.nutriscore_grade ? `<div class="nutri-score-display">Nutri-Score: <span class="nutri-score nutri-${selectedAlternative.nutriscore_grade.toLowerCase()}">${selectedAlternative.nutriscore_grade.toUpperCase()}</span></div>` : ''}
-            ${selectedAlternative.health_benefits ? `<div class="health-benefits">💡 <strong>Why it's healthier:</strong> ${selectedAlternative.health_benefits}</div>` : ''}
+            ${selectedAlternative.health_benefits ? `<div class="health-benefits"><strong>Why it's healthier:</strong> ${selectedAlternative.health_benefits}</div>` : ''}
             
             <table class="nutrition-table">
                 <thead>
@@ -667,7 +665,7 @@ function showComparison() {
     
     if (comparisonSection) {
         comparisonSection.innerHTML = `
-            <h2>🤖 AI-Powered Food Comparison</h2>
+            <h2>AI-Powered Food Comparison</h2>
             
             <table class="comparison-table">
                 <thead>
@@ -708,7 +706,7 @@ function getDetailedWeightComparison(originalFood, alternative, userProfile) {
         <div class="weight-comparison-container">
             <h3>Weight Impact Comparison (Daily Consumption)</h3>
             <p style="text-align: center; margin-bottom: 15px; color: #666;">
-                🤖 AI-calculated weight impact analysis
+                AI-calculated weight impact analysis
             </p>
             <table class="weight-comparison-table">
                 <thead>
@@ -763,11 +761,11 @@ function getDetailedWeightComparison(originalFood, alternative, userProfile) {
     
     if (yearlyWeightSavings > 1) {
         if (comparisonSection) {
-            comparisonSection.innerHTML += `<p class="positive-highlight">🎉 Excellent choice! You could avoid gaining <strong>${yearlyWeightSavings.toFixed(1)}kg</strong> per year by choosing the AI-recommended alternative daily.</p>`;
+            comparisonSection.innerHTML += `<p class="positive-highlight">Excellent choice! You could avoid gaining <strong>${yearlyWeightSavings.toFixed(1)}kg</strong> per year by choosing the AI-recommended alternative daily.</p>`;
         }
     } else if (yearlyWeightSavings > 0.1) {
         if (comparisonSection) {
-            comparisonSection.innerHTML += `<p class="positive-highlight">👍 Smart choice! You could save <strong>${yearlyWeightSavings.toFixed(1)}kg</strong> per year with this LLM-suggested alternative.</p>`;
+            comparisonSection.innerHTML += `<p class="positive-highlight">Smart choice! You could save <strong>${yearlyWeightSavings.toFixed(1)}kg</strong> per year with this LLM-suggested alternative.</p>`;
         }
     } else {
         if (comparisonSection) {
@@ -991,13 +989,13 @@ function displayBMI(profile) {
         bmiDisplay.style.display = 'block';
         
         const category = getBMICategory(profile.bmi);
-        const recommendation = getBMIRecommendation(profile.bmi);
+        const recommendation = getBMIRecommendation(category);  // Pass category string, not BMI number
         
         bmiDisplay.innerHTML = `
             <div class="bmi-info">
                 <span class="bmi-label">BMI:</span>
-                <span class="bmi-value" style="color: ${category.color}">${profile.bmi}</span>
-                <span class="bmi-category" style="color: ${category.color}">(${category.name})</span>
+                <span class="bmi-value">${profile.bmi}</span>
+                <span class="bmi-category">(${category})</span>
             </div>
             <div class="bmi-recommendation">${recommendation}</div>
             <div class="daily-calories">Daily Calorie Needs: ${profile.daily_calories || 'Not calculated'} cal</div>
@@ -1036,4 +1034,4 @@ document.addEventListener('DOMContentLoaded', function() {
     checkAuthStatus();
 });
 
-console.log('✅ MindfulBite with authentication initialized'); 
+        console.log('MindfulBite with authentication initialized'); 

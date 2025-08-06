@@ -1,6 +1,5 @@
 import sqlite3
 import hashlib
-import secrets
 from datetime import datetime, timedelta
 import logging
 
@@ -15,18 +14,12 @@ def get_db_connection():
     return conn
 
 def hash_password(password):
-    """Hash a password with salt"""
-    salt = secrets.token_hex(32)
-    password_hash = hashlib.sha256((password + salt).encode()).hexdigest()
-    return f"{salt}:{password_hash}"
+    """Hash a password using SHA-256"""
+    return hashlib.sha256(password.encode()).hexdigest()
 
 def verify_password(password, hashed):
     """Verify a password against its hash"""
-    try:
-        salt, password_hash = hashed.split(':')
-        return hashlib.sha256((password + salt).encode()).hexdigest() == password_hash
-    except ValueError:
-        return False
+    return hashlib.sha256(password.encode()).hexdigest() == hashed
 
 def init_database():
     """Initialize the database with required tables"""
@@ -76,10 +69,10 @@ def init_database():
         ''')
         
         conn.commit()
-        logger.info("✅ Database initialized successfully")
+        logger.info("Database initialized successfully")
         
     except Exception as e:
-        logger.error(f"❌ Database initialization failed: {e}")
+        logger.error(f"Database initialization failed: {e}")
         conn.rollback()
         raise
     finally:
@@ -114,11 +107,11 @@ def create_user(username, email, password):
         )
         
         conn.commit()
-        logger.info(f"✅ User created successfully: {username}")
+        logger.info(f"User created successfully: {username}")
         return {"success": True, "user_id": user_id}
         
     except Exception as e:
-        logger.error(f"❌ User creation failed: {e}")
+        logger.error(f"User creation failed: {e}")
         conn.rollback()
         return {"success": False, "error": "Failed to create user"}
     finally:
@@ -159,7 +152,7 @@ def authenticate_user(username, password):
         }
         
     except Exception as e:
-        logger.error(f"❌ Authentication failed: {e}")
+        logger.error(f"Authentication failed: {e}")
         return {"success": False, "error": "Authentication failed"}
     finally:
         conn.close()
@@ -174,7 +167,9 @@ def create_session(user_id):
         )
         
         # Create new session token
-        session_token = secrets.token_urlsafe(32)
+        import random
+        import string
+        session_token = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
         expires_at = datetime.now() + timedelta(days=7)  # 7 days expiry
         
         conn.execute(
@@ -186,7 +181,7 @@ def create_session(user_id):
         return session_token
         
     except Exception as e:
-        logger.error(f"❌ Session creation failed: {e}")
+        logger.error(f"Session creation failed: {e}")
         return None
     finally:
         conn.close()
@@ -211,7 +206,7 @@ def get_user_from_session(session_token):
         return None
         
     except Exception as e:
-        logger.error(f"❌ Session lookup failed: {e}")
+        logger.error(f"Session lookup failed: {e}")
         return None
     finally:
         conn.close()
@@ -224,7 +219,7 @@ def delete_session(session_token):
         conn.commit()
         return True
     except Exception as e:
-        logger.error(f"❌ Session deletion failed: {e}")
+        logger.error(f"Session deletion failed: {e}")
         return False
     finally:
         conn.close()
@@ -243,7 +238,7 @@ def get_user_profile(user_id):
         return None
         
     except Exception as e:
-        logger.error(f"❌ Profile lookup failed: {e}")
+        logger.error(f"Profile lookup failed: {e}")
         return None
     finally:
         conn.close()
@@ -312,11 +307,11 @@ def update_user_profile(user_id, weight=None, height=None, age=None, gender=None
         conn.execute(query, params)
         conn.commit()
         
-        logger.info(f"✅ Profile updated for user {user_id}")
+        logger.info(f"Profile updated for user {user_id}")
         return True
         
     except Exception as e:
-        logger.error(f"❌ Profile update failed: {e}")
+        logger.error(f"Profile update failed: {e}")
         conn.rollback()
         return False
     finally:

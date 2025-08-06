@@ -4,7 +4,7 @@ from openai import OpenAI
 import json
 import logging
 
-# Import database functions for user authentication (NEW)
+# Import database functions for user authentication 
 try:
     from database import (
         init_database, create_user, authenticate_user, create_session, 
@@ -15,16 +15,17 @@ except ImportError:
     print("Warning: Database module not available")
     DB_AVAILABLE = False
 
+#Creates Flask web application
 app = Flask(__name__)
-app.secret_key = 'mindfulbite-secret-key-change-in-production'  # NEW
+app.secret_key = 'mindfulbite-secret-key-change-in-production' 
 
-# Initialize database on startup (NEW)
+# Initialize database on startup
 if DB_AVAILABLE:
     try:
         init_database()
-        print("✅ Database initialized successfully")
+        print("Database initialized successfully")
     except Exception as e:
-        print(f"❌ Database initialization failed: {e}")
+        print(f"Database initialization failed: {e}")
 
 # OpenRouter Configuration
 client = OpenAI(
@@ -36,7 +37,7 @@ client = OpenAI(
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Helper function to get current user (NEW)
+# Helper function to get current user
 def get_current_user():
     """Get current user from session token"""
     if not DB_AVAILABLE:
@@ -46,8 +47,7 @@ def get_current_user():
         return get_user_from_session(session_token)
     return None
 
-# NEW AUTHENTICATION ROUTES - Added without modifying existing routes
-
+# Login page
 @app.route('/login')
 def login_page():
     """Serve the login page"""
@@ -65,7 +65,7 @@ def register():
         email = data.get('email', '').strip()
         password = data.get('password', '')
         
-        # Basic validation
+        # validation
         if not username or not email or not password:
             return jsonify({"success": False, "error": "All fields are required"}), 400
         
@@ -82,13 +82,13 @@ def register():
         result = create_user(username, email, password)
         
         if result['success']:
-            logger.info(f"✅ New user registered: {username}")
+            logger.info(f"New user registered: {username}")
             return jsonify({"success": True, "message": "Account created successfully! Please login."})
         else:
             return jsonify({"success": False, "error": result['error']}), 400
         
     except Exception as e:
-        logger.error(f"❌ Registration error: {e}")
+        logger.error(f"Registration error: {e}")
         return jsonify({"success": False, "error": "Registration failed"}), 500
 
 @app.route('/api/login', methods=['POST'])
@@ -132,7 +132,7 @@ def login():
                     samesite='Lax'
                 )
                 
-                logger.info(f"✅ User logged in: {user['username']}")
+                logger.info(f"User logged in: {user['username']}")
                 return response
             else:
                 return jsonify({"success": False, "error": "Failed to create session"}), 500
@@ -140,7 +140,7 @@ def login():
             return jsonify({"success": False, "error": auth_result['error']}), 401
         
     except Exception as e:
-        logger.error(f"❌ Login error: {e}")
+        logger.error(f"Login error: {e}")
         return jsonify({"success": False, "error": "Login failed"}), 500
 
 @app.route('/api/logout', methods=['POST'])
@@ -161,7 +161,7 @@ def logout():
         return response
         
     except Exception as e:
-        logger.error(f"❌ Logout error: {e}")
+        logger.error(f"Logout error: {e}")
         return jsonify({"success": False, "error": "Logout failed"}), 500
 
 @app.route('/api/current_user', methods=['GET'])
@@ -205,7 +205,7 @@ def get_profile():
             return jsonify({"success": True, "profile": {}})
         
     except Exception as e:
-        logger.error(f"❌ Profile fetch error: {e}")
+        logger.error(f"Profile fetch error: {e}")
         return jsonify({"success": False, "error": "Failed to fetch profile"}), 500
 
 @app.route('/api/profile', methods=['POST'])
@@ -274,7 +274,7 @@ def update_profile():
                 'daily_calories': updated_profile.get('daily_calories')
             }
             
-            logger.info(f"✅ Profile updated for user: {user['username']}")
+            logger.info(f" Profile updated for user: {user['username']}")
             return jsonify({"success": True, "profile": safe_profile})
         else:
             return jsonify({"success": False, "error": "Failed to update profile"}), 500
@@ -282,7 +282,7 @@ def update_profile():
     except ValueError as e:
         return jsonify({"success": False, "error": "Invalid number format"}), 400
     except Exception as e:
-        logger.error(f"❌ Profile update error: {e}")
+        logger.error(f" Profile update error: {e}")
         return jsonify({"success": False, "error": "Failed to update profile"}), 500
 
 # EXISTING ROUTES UNCHANGED - keeping everything as is
@@ -433,7 +433,7 @@ def get_food_nutrition_from_llm(food_query):
         """
         
         response = client.chat.completions.create(
-            model="openrouter/horizon-beta",  # Using Claude through OpenRouter
+            model="openai/gpt-4.1",  # Using Claude through OpenRouter
             messages=[
                 {"role": "system", "content": "You are a nutrition expert. Provide accurate food nutrition data in the exact JSON format requested. Return only valid JSON with no additional text."},
                 {"role": "user", "content": prompt}
@@ -465,7 +465,7 @@ def get_healthier_alternatives_from_llm(food_name, original_calories, category):
     Get healthier alternative suggestions using LLM
     """
     try:
-        logger.info(f"🔍 Finding alternatives for: {food_name}, calories: {original_calories}, category: {category}")
+        logger.info(f"Finding alternatives for: {food_name}, calories: {original_calories}, category: {category}")
         
         prompt = f"""
         Find 4-5 healthier alternatives for: "{food_name}"
@@ -508,10 +508,10 @@ def get_healthier_alternatives_from_llm(food_name, original_calories, category):
         IMPORTANT: Return ONLY the JSON array, no other text.
         """
         
-        logger.info(f"🤖 Sending prompt to OpenRouter...")
+        logger.info(f"Sending prompt to OpenRouter...")
         
         response = client.chat.completions.create(
-            model="openrouter/horizon-beta",  # Using same model as nutrition function
+            model="openai/gpt-4.1",  # Using same model as nutrition function
             messages=[
                 {"role": "system", "content": "You are a nutrition expert. Return only valid JSON arrays for food alternatives. No explanations, just the JSON."},
                 {"role": "user", "content": prompt}
@@ -522,7 +522,7 @@ def get_healthier_alternatives_from_llm(food_name, original_calories, category):
         
         # Parse the LLM response
         response_text = response.choices[0].message.content.strip()
-        logger.info(f"📝 Raw LLM alternatives response: {response_text[:200]}...")
+        logger.info(f"Raw LLM alternatives response: {response_text[:200]}...")
         
         # Clean the response (remove any markdown formatting)
         if response_text.startswith('```json'):
@@ -535,11 +535,11 @@ def get_healthier_alternatives_from_llm(food_name, original_calories, category):
         
         # Validate the response
         if not isinstance(alternatives, list):
-            logger.error(f"❌ Expected list, got {type(alternatives)}")
+            logger.error(f"Expected list, got {type(alternatives)}")
             return []
         
         if len(alternatives) == 0:
-            logger.warning(f"⚠️ LLM returned empty alternatives list")
+            logger.warning(f"LLM returned empty alternatives list")
             return []
         
         # Validate each alternative has required fields
@@ -551,27 +551,27 @@ def get_healthier_alternatives_from_llm(food_name, original_calories, category):
                 'energy-kcal_100g' in alt['nutriments']):
                 valid_alternatives.append(alt)
             else:
-                logger.warning(f"⚠️ Skipping invalid alternative: {alt}")
+                logger.warning(f"Skipping invalid alternative: {alt}")
         
-        logger.info(f"✅ Successfully parsed {len(valid_alternatives)} valid alternatives")
+        logger.info(f"Successfully parsed {len(valid_alternatives)} valid alternatives")
         return valid_alternatives
         
     except json.JSONDecodeError as e:
-        logger.error(f"❌ JSON parsing error for alternatives: {e}")
-        logger.error(f"❌ Raw response was: {response_text if 'response_text' in locals() else 'No response'}")
+        logger.error(f"JSON parsing error for alternatives: {e}")
+        logger.error(f"Raw response was: {response_text if 'response_text' in locals() else 'No response'}")
         
         # Return a fallback alternative if JSON parsing fails
         return create_fallback_alternatives(food_name, original_calories, category)
         
     except Exception as e:
-        logger.error(f"❌ LLM alternative analysis error: {e}")
+        logger.error(f"LLM alternative analysis error: {e}")
         return create_fallback_alternatives(food_name, original_calories, category)
 
 def create_fallback_alternatives(food_name, original_calories, category):
     """
     Create fallback alternatives when LLM fails
     """
-    logger.info(f"🔧 Creating fallback alternatives for {food_name}")
+    logger.info(f"Creating fallback alternatives for {food_name}")
     
     # Simple fallback based on food type
     fallback_alternatives = []
@@ -656,7 +656,7 @@ def create_fallback_alternatives(food_name, original_calories, category):
             }
         ]
     
-    logger.info(f"✅ Created {len(fallback_alternatives)} fallback alternatives")
+    logger.info(f"Created {len(fallback_alternatives)} fallback alternatives")
     return fallback_alternatives
 
 if __name__ == '__main__':
